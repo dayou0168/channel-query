@@ -122,6 +122,14 @@ http://127.0.0.1:8766
 ghcr.io/dayou0168/channel-query:latest
 ```
 
+如果 GitHub Actions 构建失败，并提示：
+
+```text
+The job was not started because recent account payments have failed or your spending limit needs to be increased.
+```
+
+这不是项目代码问题，需要到 GitHub 的 `Billing & plans` 里处理账单或提高 Actions spending limit。处理完成后，重新运行 `Build Docker Image` workflow，镜像生成后才能使用直接 YAML 部署。
+
 如果镜像包是 Private，需要先登录 GHCR：
 
 ```bash
