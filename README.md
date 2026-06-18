@@ -11,6 +11,14 @@
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 的安全流程。
 - `SECURITY.md`：密钥、token、服务账号 JSON 的安全注意事项。
 
+裸机 Linux 公开仓库一键安装命令：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-linux.sh | sudo bash
+```
+
+当前仓库是私有仓库，实际安装命令请看 `docs/INSTALL.md` 里的 Private 仓库方式。
+
 这个工具用于批量输入 WPPChat 账号，查询后台用户列表里的注册来源，再到 Google 表格里匹配“来源编号”左侧的渠道编码。
 
 ## 启动

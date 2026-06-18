@@ -42,6 +42,8 @@ python -m py_compile channel_query_app.py telegram_bot.py
 - `docs/INSTALL.md`
 - `docs/DEPLOY_LINUX.md`
 - `scripts/install.sh`
+- `scripts/bootstrap-linux.sh`
+- `scripts/bootstrap-docker.sh`
 - `scripts/install-linux.sh`
 - `scripts/install-docker.sh`
 - `scripts/update.sh`

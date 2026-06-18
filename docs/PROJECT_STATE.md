@@ -32,6 +32,8 @@
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 流程。
 - `Dockerfile`：Docker 镜像构建文件。
 - `docker-compose.yml`：Docker Compose 服务定义，包含 `bot` 和可选 `web`。
+- `scripts/bootstrap-linux.sh`：可通过 GitHub raw URL 执行的裸机 Linux 远程入口脚本。
+- `scripts/bootstrap-docker.sh`：可通过 GitHub raw URL 执行的 Docker Compose 远程入口脚本。
 - `scripts/install-linux.sh`：裸机 Linux 一键部署脚本。
 - `scripts/install-docker.sh`：Docker Compose 一键部署脚本。
 - `scripts/install.sh`：服务器首次安装辅助脚本。

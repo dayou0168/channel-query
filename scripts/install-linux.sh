@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_URL="${CHANNEL_QUERY_REPO_URL:-https://github.com/dayou0168/channel-query.git}"
 SERVICE_NAME="${CHANNEL_QUERY_SERVICE_NAME:-channel-query-bot}"
 SKIP_UPGRADE="${CHANNEL_QUERY_SKIP_UPGRADE:-0}"
+GITHUB_TOKEN_VALUE="${CHANNEL_QUERY_GITHUB_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-}}}"
 
 if [ "${EUID}" -ne 0 ]; then
   echo "请使用 root 执行，例如：sudo bash scripts/install-linux.sh"
@@ -33,9 +34,17 @@ install_system_packages() {
   apt-get install -y ca-certificates curl git python3 python3-venv python3-pip
 }
 
+git_with_auth() {
+  if [ -n "$GITHUB_TOKEN_VALUE" ]; then
+    git -c "http.https://github.com/.extraheader=Authorization: Bearer ${GITHUB_TOKEN_VALUE}" "$@"
+  else
+    git "$@"
+  fi
+}
+
 prepare_source() {
   if [ -d "$APP_DIR/.git" ]; then
-    git -C "$APP_DIR" pull --ff-only
+    git_with_auth -C "$APP_DIR" pull --ff-only
     return
   fi
 
@@ -44,7 +53,7 @@ prepare_source() {
   fi
 
   mkdir -p "$(dirname "$APP_DIR")"
-  git clone "$REPO_URL" "$APP_DIR"
+  git_with_auth clone "$REPO_URL" "$APP_DIR"
 }
 
 ensure_python_env() {

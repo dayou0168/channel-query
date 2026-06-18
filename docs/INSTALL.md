@@ -9,25 +9,48 @@
 
 ## 重要说明
 
-当前 GitHub 仓库是私有仓库。服务器第一次拉代码前，需要先让服务器有权限访问仓库。推荐方式：
+当前 GitHub 仓库是私有仓库。私有仓库不能直接无权限 `curl raw.githubusercontent.com`，需要 GitHub token。
+
+如果以后把仓库改成 Public，裸机 Linux 就可以直接一条命令安装：
 
 ```bash
-sudo apt update
-sudo apt install -y git gh
-gh auth login
-gh repo clone dayou0168/channel-query /opt/channel-query
-cd /opt/channel-query
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-linux.sh | sudo bash
 ```
 
-如果你已经用别的方式把项目放到了 `/opt/channel-query`，可以直接进入目录执行安装脚本。
+Docker Compose 也可以一条命令安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-docker.sh | sudo bash
+```
+
+如果仓库保持 Private，推荐先准备一个只读 GitHub token，然后这样执行。token 不要发到聊天窗口。GitHub token 只需要这个私有仓库的 `Contents: Read-only` 权限。
+
+```bash
+read -rsp "GitHub Token: " CHANNEL_QUERY_GITHUB_TOKEN; echo
+curl -fsSL -H "Authorization: Bearer ${CHANNEL_QUERY_GITHUB_TOKEN}" \
+  https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-linux.sh \
+  | sudo CHANNEL_QUERY_GITHUB_TOKEN="${CHANNEL_QUERY_GITHUB_TOKEN}" bash
+unset CHANNEL_QUERY_GITHUB_TOKEN
+```
+
+Docker Compose 私有仓库安装命令：
+
+```bash
+read -rsp "GitHub Token: " CHANNEL_QUERY_GITHUB_TOKEN; echo
+curl -fsSL -H "Authorization: Bearer ${CHANNEL_QUERY_GITHUB_TOKEN}" \
+  https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-docker.sh \
+  | sudo CHANNEL_QUERY_GITHUB_TOKEN="${CHANNEL_QUERY_GITHUB_TOKEN}" bash
+unset CHANNEL_QUERY_GITHUB_TOKEN
+```
+
+这个远程入口脚本会自动安装基础依赖、拉取 GitHub 仓库，然后继续执行项目里的安装脚本。
 
 ## 方式一：裸机 Linux 一键部署
 
 适合你希望直接用 systemd 管理机器人的场景。
 
 ```bash
-cd /opt/channel-query
-sudo bash scripts/install-linux.sh
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-linux.sh | sudo bash
 ```
 
 脚本会自动做这些事：
@@ -35,6 +58,7 @@ sudo bash scripts/install-linux.sh
 - `apt update`
 - `apt upgrade -y`
 - 安装 `git`、`python3`、`python3-venv`、`python3-pip`
+- 从 GitHub 拉取项目到 `/opt/channel-query`
 - 创建 Python 虚拟环境 `.venv`
 - 安装 `requirements.txt`
 - 自动生成 `.env` 里的 `CHANNEL_QUERY_MASTER_KEY`
@@ -45,8 +69,8 @@ sudo bash scripts/install-linux.sh
 如果你不想执行系统升级，只想安装依赖：
 
 ```bash
-cd /opt/channel-query
-sudo CHANNEL_QUERY_SKIP_UPGRADE=1 bash scripts/install-linux.sh
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-linux.sh \
+  | sudo CHANNEL_QUERY_SKIP_UPGRADE=1 bash
 ```
 
 裸机部署配置文件：
@@ -93,8 +117,7 @@ http://127.0.0.1:8766
 适合你以后要跑多个机器人，或者希望配合 Docker 面板管理的场景。
 
 ```bash
-cd /opt/channel-query
-sudo bash scripts/install-docker.sh
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-docker.sh | sudo bash
 ```
 
 脚本会自动做这些事：
@@ -103,6 +126,7 @@ sudo bash scripts/install-docker.sh
 - `apt upgrade -y`
 - 安装 `git`、`docker.io`、`docker-compose-plugin`
 - 启动 Docker 服务
+- 从 GitHub 拉取项目到 `/opt/channel-query`
 - 创建 `.env`
 - 创建 `config/telegram_config.json`
 - 创建 `data/` 持久化目录
@@ -112,8 +136,8 @@ sudo bash scripts/install-docker.sh
 如果你不想执行系统升级：
 
 ```bash
-cd /opt/channel-query
-sudo CHANNEL_QUERY_SKIP_UPGRADE=1 bash scripts/install-docker.sh
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-docker.sh \
+  | sudo CHANNEL_QUERY_SKIP_UPGRADE=1 bash
 ```
 
 Docker Compose 部署配置文件：
