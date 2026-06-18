@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local runtime logs
+logs/
+*.log
+
+# Local app state and private data
+.channel_query_draft.json
+channels.csv
+
+# Environment and encrypted secrets
+.env
+.env.*
+!.env.example
+*.enc
+.backend_token*
+.backend_login*
+.google_oauth_token*
+
+# Telegram / backend / Google private config
+telegram_config.json
+!telegram_config.example.json
+service-account*.json
+google-oauth-client*.json
+client_secret*.json
+credentials*.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
