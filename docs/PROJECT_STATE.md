@@ -32,6 +32,9 @@
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 流程。
 - `Dockerfile`：Docker 镜像构建文件。
 - `docker-compose.yml`：Docker Compose 服务定义，包含 `bot` 和可选 `web`。
+- `docker-compose.deploy.yml`：直接拉取 GHCR 镜像的 Compose 部署文件，不需要本地源码构建。
+- `.github/workflows/docker-image.yml`：推送到 `main` 后自动构建并发布 GHCR 镜像。
+- `scripts/bootstrap-compose-yaml.sh`：只下载 Compose YAML 和模板配置的远程入口脚本。
 - `scripts/bootstrap-linux.sh`：可通过 GitHub raw URL 执行的裸机 Linux 远程入口脚本。
 - `scripts/bootstrap-docker.sh`：可通过 GitHub raw URL 执行的 Docker Compose 远程入口脚本。
 - `scripts/install-linux.sh`：裸机 Linux 一键部署脚本。
@@ -51,7 +54,7 @@
 - 支持后台 token 加密保存。
 - 支持后台 token 过期后自动续登录，前提是已经保存后台账号密码和 TOTP 绑定密钥。
 - 支持 `查IP` 命令查询同注册 IP 账号。
-- 支持裸机 Linux 一键部署和 Docker Compose 一键部署。
+- 支持裸机 Linux 一键部署、Docker Compose 源码构建部署、Docker Compose 直接 YAML 部署。
 
 ## 后台接口
 

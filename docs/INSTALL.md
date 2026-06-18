@@ -112,13 +112,85 @@ ssh -L 8766:127.0.0.1:8766 root@服务器IP
 http://127.0.0.1:8766
 ```
 
-## 方式二：Docker Compose 一键部署
+## 方式二：Docker Compose 直接 YAML 部署
+
+这是你说的“通过 yaml 配置文件直接部署”。它不需要服务器上有完整源码，只需要下载 `docker-compose.deploy.yml`，然后从 GHCR 拉取已经构建好的镜像。
+
+前提：GitHub Actions 已经成功构建镜像：
+
+```text
+ghcr.io/dayou0168/channel-query:latest
+```
+
+如果镜像包是 Private，需要先登录 GHCR：
+
+```bash
+echo "你的GitHubToken" | sudo docker login ghcr.io -u dayou0168 --password-stdin
+```
+
+token 需要 `Packages: Read` 权限。如果镜像包设置成 Public，就不需要登录。
+
+公开仓库时可以用这一条命令安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-compose-yaml.sh | sudo bash
+```
+
+当前仓库是 Private，使用这一条：
+
+```bash
+read -rsp "GitHub Token: " CHANNEL_QUERY_GITHUB_TOKEN; echo
+curl -fsSL -H "Authorization: Bearer ${CHANNEL_QUERY_GITHUB_TOKEN}" \
+  https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-compose-yaml.sh \
+  | sudo CHANNEL_QUERY_GITHUB_TOKEN="${CHANNEL_QUERY_GITHUB_TOKEN}" bash
+unset CHANNEL_QUERY_GITHUB_TOKEN
+```
+
+脚本会自动做这些事：
+
+- `apt update`
+- `apt upgrade -y`
+- 安装 `docker.io`、`docker-compose-plugin`
+- 创建 `/opt/channel-query/docker-compose.yml`
+- 创建 `/opt/channel-query/.env`
+- 创建 `/opt/channel-query/config/telegram_config.json`
+- 创建 `/opt/channel-query/data/`
+- 拉取 `ghcr.io/dayou0168/channel-query:latest`
+- 如果配置已经填好，会自动启动机器人；如果还是模板内容，会暂不启动
+
+手动下载 YAML 的方式：
+
+```bash
+sudo mkdir -p /opt/channel-query/config /opt/channel-query/data
+cd /opt/channel-query
+sudo curl -fsSL \
+  https://raw.githubusercontent.com/dayou0168/channel-query/main/docker-compose.deploy.yml \
+  -o docker-compose.yml
+sudo curl -fsSL \
+  https://raw.githubusercontent.com/dayou0168/channel-query/main/telegram_config.example.json \
+  -o config/telegram_config.json
+sudo sh -c 'printf "CHANNEL_QUERY_MASTER_KEY=%s\n" "$(head -c 32 /dev/urandom | base64 | tr "+/" "-_")" > .env'
+sudo chmod 600 .env config/telegram_config.json
+sudo docker compose pull
+sudo docker compose up -d bot
+```
+
+如果要启动网页工具：
+
+```bash
+cd /opt/channel-query
+sudo docker compose --profile web up -d web
+```
+
+## 方式三：Docker Compose 源码构建部署
 
 适合你以后要跑多个机器人，或者希望配合 Docker 面板管理的场景。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/bootstrap-docker.sh | sudo bash
 ```
+
+这个方式会先从 GitHub 拉取完整源码，然后在服务器本机执行 `docker compose build`。
 
 脚本会自动做这些事：
 
@@ -140,7 +212,7 @@ curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/script
   | sudo CHANNEL_QUERY_SKIP_UPGRADE=1 bash
 ```
 
-Docker Compose 部署配置文件：
+Docker Compose 源码构建部署配置文件：
 
 ```text
 /opt/channel-query/.env
@@ -200,7 +272,13 @@ sudo docker compose stop bot
 /opt/channel-query/telegram_config.json
 ```
 
-Docker Compose 路径：
+Docker Compose 直接 YAML 路径：
+
+```text
+/opt/channel-query/config/telegram_config.json
+```
+
+Docker Compose 源码构建路径：
 
 ```text
 /opt/channel-query/config/telegram_config.json

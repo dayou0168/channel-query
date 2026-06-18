@@ -44,8 +44,11 @@ python -m py_compile channel_query_app.py telegram_bot.py
 - `scripts/install.sh`
 - `scripts/bootstrap-linux.sh`
 - `scripts/bootstrap-docker.sh`
+- `scripts/bootstrap-compose-yaml.sh`
 - `scripts/install-linux.sh`
 - `scripts/install-docker.sh`
+- `docker-compose.deploy.yml`
+- `.github/workflows/docker-image.yml`
 - `scripts/update.sh`
 
 ## GitHub 同步要求

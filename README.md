@@ -19,6 +19,14 @@ curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/script
 
 当前仓库是私有仓库，实际安装命令请看 `docs/INSTALL.md` 里的 Private 仓库方式。
 
+Docker Compose 直接 YAML 部署使用：
+
+```text
+docker-compose.deploy.yml
+```
+
+它会直接拉取 `ghcr.io/dayou0168/channel-query:latest`，不需要在服务器本地构建源码。
+
 这个工具用于批量输入 WPPChat 账号，查询后台用户列表里的注册来源，再到 Google 表格里匹配“来源编号”左侧的渠道编码。
 
 ## 启动
