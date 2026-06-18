@@ -1,0 +1,32 @@
+services:
+  bot:
+    build: .
+    image: channel-query:local
+    container_name: channel-query-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CHANNEL_QUERY_DATA_DIR: /data
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+    command: ["python", "telegram_bot.py", "--config", "/config/telegram_config.json"]
+
+  web:
+    build: .
+    image: channel-query:local
+    container_name: channel-query-web
+    restart: unless-stopped
+    profiles:
+      - web
+    env_file:
+      - .env
+    environment:
+      CHANNEL_QUERY_DATA_DIR: /data
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+    ports:
+      - "127.0.0.1:8766:8766"
+    command: ["python", "channel_query_app.py", "--host", "0.0.0.0", "--port", "8766"]

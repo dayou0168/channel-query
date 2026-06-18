@@ -5,6 +5,7 @@
 开始任何开发前，先阅读：
 
 - `docs/PROJECT_STATE.md`
+- `docs/INSTALL.md`
 - `docs/DEPLOY_LINUX.md`
 - `README.md`
 
@@ -38,8 +39,11 @@ python -m py_compile channel_query_app.py telegram_bot.py
 
 修改 Linux 部署逻辑后，同步检查：
 
+- `docs/INSTALL.md`
 - `docs/DEPLOY_LINUX.md`
 - `scripts/install.sh`
+- `scripts/install-linux.sh`
+- `scripts/install-docker.sh`
 - `scripts/update.sh`
 
 ## GitHub 同步要求

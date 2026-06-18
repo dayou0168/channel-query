@@ -27,8 +27,13 @@
 - `telegram_config.example.json`：机器人配置模板。
 - `.env.example`：服务器环境变量模板。
 - `requirements.txt`：Python 依赖。
+- `docs/INSTALL.md`：裸机 Linux 和 Docker Compose 两种一键部署方式。
 - `docs/DEPLOY_LINUX.md`：Linux 服务器部署流程。
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 流程。
+- `Dockerfile`：Docker 镜像构建文件。
+- `docker-compose.yml`：Docker Compose 服务定义，包含 `bot` 和可选 `web`。
+- `scripts/install-linux.sh`：裸机 Linux 一键部署脚本。
+- `scripts/install-docker.sh`：Docker Compose 一键部署脚本。
 - `scripts/install.sh`：服务器首次安装辅助脚本。
 - `scripts/update.sh`：服务器更新代码辅助脚本。
 - `scripts/status.sh`：查看机器人状态和日志。
@@ -44,6 +49,7 @@
 - 支持后台 token 加密保存。
 - 支持后台 token 过期后自动续登录，前提是已经保存后台账号密码和 TOTP 绑定密钥。
 - 支持 `查IP` 命令查询同注册 IP 账号。
+- 支持裸机 Linux 一键部署和 Docker Compose 一键部署。
 
 ## 后台接口
 

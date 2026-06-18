@@ -43,15 +43,20 @@ DEFAULT_SHEET_URL = os.environ.get("CHANNEL_QUERY_SHEET_URL", "")
 GOOGLE_OAUTH_STATE: dict[str, dict[str, Any]] = {}
 GOOGLE_OAUTH_TOKEN: dict[str, Any] = {}
 BACKEND_SESSION_TOKEN = ""
-DRAFT_FILE = Path(__file__).with_name(".channel_query_draft.json")
-BACKEND_TOKEN_FILE = Path(__file__).with_name(".backend_token.enc")
-LEGACY_BACKEND_TOKEN_FILE = Path(__file__).with_name(".backend_token")
-LEGACY_BACKEND_DPAPI_TOKEN_FILE = Path(__file__).with_name(".backend_token.dpapi")
-BACKEND_LOGIN_FILE = Path(__file__).with_name(".backend_login.enc")
-GOOGLE_OAUTH_TOKEN_FILE = Path(__file__).with_name(".google_oauth_token.enc")
-LEGACY_GOOGLE_OAUTH_DPAPI_TOKEN_FILE = Path(__file__).with_name(".google_oauth_token.dpapi")
 SECURE_STORE_ENTROPY = b"channel-query-secure-store-v1"
 MASTER_KEY_ENV = "CHANNEL_QUERY_MASTER_KEY"
+APP_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.environ.get("CHANNEL_QUERY_DATA_DIR", str(APP_DIR))).expanduser()
+if not DATA_DIR.is_absolute():
+    DATA_DIR = (APP_DIR / DATA_DIR).resolve()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DRAFT_FILE = DATA_DIR / ".channel_query_draft.json"
+BACKEND_TOKEN_FILE = DATA_DIR / ".backend_token.enc"
+LEGACY_BACKEND_TOKEN_FILE = DATA_DIR / ".backend_token"
+LEGACY_BACKEND_DPAPI_TOKEN_FILE = DATA_DIR / ".backend_token.dpapi"
+BACKEND_LOGIN_FILE = DATA_DIR / ".backend_login.enc"
+GOOGLE_OAUTH_TOKEN_FILE = DATA_DIR / ".google_oauth_token.enc"
+LEGACY_GOOGLE_OAUTH_DPAPI_TOKEN_FILE = DATA_DIR / ".google_oauth_token.dpapi"
 
 
 def generate_master_key() -> str:
