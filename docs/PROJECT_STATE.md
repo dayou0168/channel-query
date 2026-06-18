@@ -133,3 +133,13 @@ sudo journalctl -u channel-query-bot -f
 ```
 
 然后再说明你要改的功能。
+
+## GitHub 同步约定
+
+仓库地址：
+
+```text
+https://github.com/dayou0168/channel-query
+```
+
+以后更新代码或项目文档后，默认需要提交并推送到 GitHub，除非用户明确说先不要同步。

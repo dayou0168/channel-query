@@ -42,6 +42,19 @@ python -m py_compile channel_query_app.py telegram_bot.py
 - `scripts/install.sh`
 - `scripts/update.sh`
 
+## GitHub 同步要求
+
+用户要求：以后更新代码或项目文档后，同步更新到 GitHub。
+
+默认流程：
+
+1. 修改完成后先运行必要验证。
+2. 检查 `git status -sb`，确认没有误提交敏感文件或无关文件。
+3. 提交到当前分支。
+4. 推送到 `origin/main`。
+
+除非用户明确说“先不要提交”或“先不要推送”，否则每次完成修改都要同步到 GitHub。
+
 ## 服务器约定
 
 生产服务器目录默认是：
