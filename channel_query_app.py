@@ -263,6 +263,7 @@ def load_form_draft() -> dict[str, str]:
         "backendUsername",
         "backendToken",
         "serviceAccountFile",
+        "extraSheetUrls",
         "oauthClientFile",
     }
     return {key: str(value) for key, value in raw.items() if key in allowed and value is not None}
@@ -578,6 +579,8 @@ INDEX_HTML = r"""<!doctype html>
           <textarea id="sheetCsv" class="csv-input" placeholder="需要包含“来源编号”列，渠道编码在它左侧"></textarea>
           <details>
             <summary>高级：私有表格自动读取</summary>
+            <label for="extraSheetUrls">附加渠道表链接</label>
+            <textarea id="extraSheetUrls" class="csv-input" placeholder="可选，每行一个；用于天马/CPA等额外来源映射"></textarea>
             <label for="serviceAccountFile">服务账号JSON路径</label>
             <input id="serviceAccountFile" placeholder="以后自动读取私有表格时再配置" />
             <label for="oauthClientFile">Google OAuth客户端JSON路径</label>
@@ -844,6 +847,7 @@ INDEX_HTML = r"""<!doctype html>
           backendBase: $("backendBase").value.trim(),
           backendToken: $("backendToken").value.trim(),
           sheetUrl: $("sheetUrl").value.trim(),
+          extraSheetUrls: $("extraSheetUrls").value.trim(),
           sheetCsv: $("sheetCsv").value,
           serviceAccountFile: $("serviceAccountFile").value.trim(),
         });
@@ -892,10 +896,16 @@ def normalize_source(value: Any) -> str:
         host = parsed.hostname or ""
         return host.split(".")[0].strip()
     if "/" in text:
-        parsed = urllib.parse.urlparse("https://" + text)
-        if parsed.hostname:
-            return parsed.hostname.split(".")[0].strip()
+        prefix = text.split("/", 1)[0]
+        if "." in prefix or re.fullmatch(r"[A-Za-z0-9-]+(?::\d+)?", prefix or ""):
+            parsed = urllib.parse.urlparse("https://" + text)
+            if parsed.hostname:
+                return parsed.hostname.split(".")[0].strip()
+        return text
     if "." in text:
+        parsed = urllib.parse.urlparse("https://" + text)
+        if parsed.hostname and "." in parsed.hostname:
+            return parsed.hostname.split(".")[0].strip()
         return text.split(".")[0].strip()
     return text
 
@@ -995,48 +1005,33 @@ def build_channel_map(csv_text: str) -> dict[str, str]:
         raise RuntimeError("渠道表为空。")
     text = csv_text.lstrip("\ufeff")
     rows = read_delimited_rows(text)
-    header_index = -1
-    source_col = -1
-    for idx, row in enumerate(rows[:30]):
-        normalized = [cell.strip() for cell in row]
-        if "来源编号" in normalized:
-            header_index = idx
-            source_col = normalized.index("来源编号")
-            break
-    if header_index < 0 or source_col < 0:
-        raise RuntimeError("渠道表中未找到“来源编号”列。")
-    if source_col == 0:
-        raise RuntimeError("“来源编号”左侧没有渠道编码列。")
-    channel_col = source_col - 1
-    mapping: dict[str, str] = {}
-    for row in rows[header_index + 1 :]:
-        if len(row) <= source_col:
-            continue
-        source_id = normalize_source(row[source_col])
-        if not source_id:
-            continue
-        channel = row[channel_col].strip() if len(row) > channel_col else ""
-        if channel:
-            mapping[source_id] = channel
-    if not mapping:
-        raise RuntimeError("渠道表中没有可用的来源编号映射。")
-    return mapping
+    return build_channel_map_from_rows(rows)
+
+
+def first_header_index(headers: list[str], names: tuple[str, ...]) -> int:
+    for name in names:
+        if name in headers:
+            return headers.index(name)
+    return -1
 
 
 def build_channel_map_from_rows(rows: list[list[Any]]) -> dict[str, str]:
+    source_headers = ("来源编号", "注册来源")
+    channel_headers = ("渠道编码", "渠道编号")
     header_index = -1
     source_col = -1
+    channel_col = -1
     for idx, row in enumerate(rows[:30]):
         normalized = [str(cell).strip() for cell in row]
-        if "来源编号" in normalized:
+        source_col = first_header_index(normalized, source_headers)
+        if source_col >= 0:
             header_index = idx
-            source_col = normalized.index("来源编号")
+            channel_col = source_col - 1 if source_col > 0 else first_header_index(normalized, channel_headers)
             break
     if header_index < 0 or source_col < 0:
-        raise RuntimeError("渠道表中未找到“来源编号”列。")
-    if source_col == 0:
-        raise RuntimeError("“来源编号”左侧没有渠道编码列。")
-    channel_col = source_col - 1
+        raise RuntimeError("渠道表中未找到“来源编号”或“注册来源”列。")
+    if channel_col < 0:
+        raise RuntimeError("“来源编号/注册来源”左侧没有渠道编码列，且未找到“渠道编码”列。")
     mapping: dict[str, str] = {}
     for row in rows[header_index + 1 :]:
         if len(row) <= source_col:
@@ -1666,7 +1661,15 @@ def call_backend_users_by_ip(ip: str, token: str, backend_base: str, max_results
     return []
 
 
-def load_channel_map(sheet_url: str, sheet_csv: str, service_account_file: str = "") -> tuple[dict[str, str], str]:
+def parse_extra_sheet_urls(value: Any) -> list[str]:
+    if isinstance(value, list):
+        raw_items = [str(item or "").strip() for item in value]
+    else:
+        raw_items = re.split(r"[\n,，]+", str(value or ""))
+    return [item.strip() for item in raw_items if item and item.strip()]
+
+
+def load_single_channel_map(sheet_url: str, sheet_csv: str, service_account_file: str = "") -> tuple[dict[str, str], str]:
     if sheet_csv and sheet_csv.strip():
         return build_channel_map(sheet_csv), "CSV"
     if service_account_file:
@@ -1677,6 +1680,20 @@ def load_channel_map(sheet_url: str, sheet_csv: str, service_account_file: str =
     if not csv_url:
         raise RuntimeError("请提供Google表格链接，或上传/粘贴CSV。")
     return build_channel_map(fetch_url_text(csv_url)), "Google表格"
+
+
+def load_channel_map(
+    sheet_url: str,
+    sheet_csv: str,
+    service_account_file: str = "",
+    extra_sheet_urls: Any = "",
+) -> tuple[dict[str, str], str]:
+    mapping, sheet_source = load_single_channel_map(sheet_url, sheet_csv, service_account_file)
+    for index, extra_url in enumerate(parse_extra_sheet_urls(extra_sheet_urls), start=1):
+        extra_mapping, extra_source = load_single_channel_map(extra_url, "", service_account_file)
+        mapping.update(extra_mapping)
+        sheet_source += f" + 附加表{index}({extra_source})"
+    return mapping, sheet_source
 
 
 def first_backend_value(row: dict[str, Any] | None, *keys: str) -> str:
@@ -1712,6 +1729,7 @@ def query_accounts(body: dict[str, Any]) -> dict[str, Any]:
         body.get("sheetUrl") or DEFAULT_SHEET_URL,
         body.get("sheetCsv") or "",
         body.get("serviceAccountFile") or "",
+        body.get("extraSheetUrls") or body.get("extraSheetUrl") or "",
     )
     token, token_source = get_backend_token(body.get("backendToken"))
     backend_base = body.get("backendBase") or BACKEND_BASE_URL

@@ -7,6 +7,7 @@
 - `AGENTS.md`：给后续 Codex / 维护者的项目接手说明。
 - `docs/PROJECT_STATE.md`：当前项目功能、服务器现状、不要上传的敏感文件。
 - `docs/INSTALL.md`：裸机 Linux 和 Docker Compose 两种一键部署方式。
+- `docs/TIANMA_CPA.md`：天马 / CPA 附加映射表配置说明。
 - `docs/DEPLOY_LINUX.md`：Linux 服务器部署和更新流程。
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 的安全流程。
 - `SECURITY.md`：密钥、token、服务账号 JSON 的安全注意事项。

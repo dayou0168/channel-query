@@ -3,6 +3,7 @@
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "https://docs.google.com/spreadsheets/d/your_sheet_id/edit?gid=0#gid=0",
+  "extra_sheet_urls": "",
   "sheet_csv_path": "",
   "service_account_file": ""
 }

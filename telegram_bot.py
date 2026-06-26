@@ -46,6 +46,7 @@ def load_config(path: str) -> dict[str, Any]:
         "backend_base": "WPPCHAT_BACKEND_URL",
         "backend_token": "WPPCHAT_X_TOKEN",
         "sheet_url": "CHANNEL_QUERY_SHEET_URL",
+        "extra_sheet_urls": "CHANNEL_QUERY_EXTRA_SHEET_URLS",
         "sheet_csv_path": "CHANNEL_QUERY_SHEET_CSV_PATH",
         "service_account_file": "CHANNEL_QUERY_SERVICE_ACCOUNT_FILE",
     }
@@ -224,6 +225,7 @@ def query_text(text: str, config: dict[str, Any]) -> str:
         "backendBase": config.get("backend_base") or core.BACKEND_BASE_URL,
         "backendToken": config.get("backend_token") or "",
         "sheetUrl": config.get("sheet_url") or core.DEFAULT_SHEET_URL,
+        "extraSheetUrls": config.get("extra_sheet_urls") or config.get("extra_sheet_url") or "",
         "sheetCsv": read_sheet_csv(config),
         "serviceAccountFile": config.get("service_account_file") or "",
     }

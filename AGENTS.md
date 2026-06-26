@@ -6,6 +6,7 @@
 
 - `docs/PROJECT_STATE.md`
 - `docs/INSTALL.md`
+- `docs/TIANMA_CPA.md`
 - `docs/DEPLOY_LINUX.md`
 - `README.md`
 
