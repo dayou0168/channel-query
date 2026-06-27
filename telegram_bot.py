@@ -33,6 +33,14 @@ import channel_query_app as core
 
 
 MAX_MESSAGE_LEN = 3800
+TELEGRAM_RETRYABLE_HTTP_CODES = {500, 502, 503, 504}
+
+
+class TelegramApiError(RuntimeError):
+    def __init__(self, message: str, status_code: int | None = None, retryable: bool = False) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retryable = retryable
 
 
 def load_config(path: str) -> dict[str, Any]:
@@ -69,10 +77,22 @@ def telegram_request(token: str, method: str, payload: dict[str, Any] | None = N
             result = json.loads(response.read().decode("utf-8", errors="replace"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500]
-        raise RuntimeError(f"Telegram API错误：HTTP {exc.code} {body}") from exc
+        raise TelegramApiError(
+            f"Telegram API错误：HTTP {exc.code} {body}",
+            status_code=exc.code,
+            retryable=exc.code in TELEGRAM_RETRYABLE_HTTP_CODES,
+        ) from exc
+    except (TimeoutError, urllib.error.URLError) as exc:
+        raise TelegramApiError(f"Telegram API网络错误：{exc}", retryable=True) from exc
     if not result.get("ok"):
-        raise RuntimeError(f"Telegram API错误：{result}")
+        raise TelegramApiError(f"Telegram API错误：{result}")
     return result
+
+
+def next_backoff(current: int) -> int:
+    if current <= 0:
+        return 10
+    return min(current * 2, 300)
 
 
 def get_updates(token: str, offset: int | None) -> list[dict[str, Any]]:
@@ -292,9 +312,11 @@ def main() -> None:
     print(f"Telegram机器人已启动：@{username}" if username else "Telegram机器人已启动")
 
     offset: int | None = None
+    telegram_backoff = 0
     while True:
         try:
             updates = get_updates(token, offset)
+            telegram_backoff = 0
             for update in updates:
                 offset = int(update["update_id"]) + 1
                 message = update.get("message")
@@ -303,6 +325,14 @@ def main() -> None:
         except KeyboardInterrupt:
             print("\n已停止。")
             return
+        except TelegramApiError as exc:
+            if exc.retryable:
+                telegram_backoff = next_backoff(telegram_backoff)
+                print(f"运行错误：{exc}；{telegram_backoff}秒后重试。", file=sys.stderr)
+                time.sleep(telegram_backoff)
+                continue
+            print(f"运行错误：{exc}", file=sys.stderr)
+            time.sleep(5)
         except Exception as exc:
             print(f"运行错误：{exc}", file=sys.stderr)
             time.sleep(5)
