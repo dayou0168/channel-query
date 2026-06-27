@@ -94,6 +94,7 @@ ensure_runtime_files() {
     cat >config/telegram_config.json <<JSON
 {
   "telegram_bot_token": "123456:replace_with_botfather_token",
+  "telegram_api_base": "https://api.telegram.org",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "https://docs.google.com/spreadsheets/d/your_sheet_id/edit?gid=0#gid=0",

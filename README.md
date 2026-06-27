@@ -127,6 +127,7 @@ Copy-Item telegram_config.example.json telegram_config.json
 然后编辑 `telegram_config.json`：
 
 - `telegram_bot_token`：从 Telegram 的 `@BotFather` 创建机器人后拿到。
+- `telegram_api_base`：Telegram Bot API 地址，默认 `https://api.telegram.org`；如果服务器访问 Telegram 不稳定，可以改成你自己的反代地址。
 - `backend_base`：后台地址，例如 `https://zhheew.bw009.com`。
 - `backend_token`：可以留空。网页里“登录后台”成功后会把 token 加密保存，机器人会自动读取。
 - `sheet_csv_path`：实时读取 Google 表格时留空；只想临时使用固定 CSV 时再填，例如 `D:\Documents\渠道查询\channels.csv`。

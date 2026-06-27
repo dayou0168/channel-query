@@ -55,6 +55,8 @@
 - 支持后台 token 过期后自动续登录，前提是已经保存后台账号密码和 TOTP 绑定密钥。
 - 支持 `查IP` 命令查询同注册 IP 账号。
 - 支持裸机 Linux 一键部署、Docker Compose 源码构建部署、Docker Compose 直接 YAML 部署。
+- 支持 `TELEGRAM_API_BASE` / `telegram_api_base` 配置 Telegram Bot API 地址，不再固定官方 `https://api.telegram.org`。
+- Telegram 500/502/503/504 或网络超时时会自动退避重试，避免每 5 秒刷日志。
 
 ## 后台接口
 

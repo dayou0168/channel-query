@@ -297,6 +297,7 @@ Docker Compose 源码构建路径：
 ```json
 {
   "telegram_bot_token": "从BotFather拿到的token",
+  "telegram_api_base": "https://api.telegram.org",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "Google表格链接",
@@ -310,12 +311,19 @@ Docker Compose 示例：
 ```json
 {
   "telegram_bot_token": "从BotFather拿到的token",
+  "telegram_api_base": "https://api.telegram.org",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "Google表格链接",
   "sheet_csv_path": "",
   "service_account_file": "/config/service-account.json"
 }
+```
+
+如果服务器访问 Telegram 官方接口不稳定，可以把 `telegram_api_base` 改成你自己的 Telegram Bot API 反代地址。也可以在 `.env` 里填写：
+
+```text
+TELEGRAM_API_BASE=https://你的telegram-api反代域名
 ```
 
 ## 两种方式怎么选

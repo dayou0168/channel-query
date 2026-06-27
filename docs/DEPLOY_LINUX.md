@@ -94,6 +94,7 @@ nano telegram_config.json
 ```json
 {
   "telegram_bot_token": "从BotFather拿到的token",
+  "telegram_api_base": "https://api.telegram.org",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "你的Google表格链接",
@@ -103,6 +104,12 @@ nano telegram_config.json
 ```
 
 `telegram_config.json` 不要上传 GitHub。
+
+如果服务器访问 Telegram 官方接口不稳定，可以把 `telegram_api_base` 改成你自己的 Telegram Bot API 反代地址，例如：
+
+```json
+"telegram_api_base": "https://你的telegram-api反代域名"
+```
 
 ## 6. 配置 Google 服务账号
 

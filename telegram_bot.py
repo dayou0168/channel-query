@@ -21,6 +21,7 @@ import ipaddress
 import json
 import os
 import re
+import socket
 import sys
 import time
 import urllib.error
@@ -33,6 +34,29 @@ import channel_query_app as core
 
 
 MAX_MESSAGE_LEN = 3800
+DEFAULT_TELEGRAM_API_BASE = "https://api.telegram.org"
+RETRYABLE_TELEGRAM_HTTP_STATUS = {500, 502, 503, 504}
+INITIAL_RETRY_DELAY = 5
+MAX_RETRY_DELAY = 300
+
+
+class TelegramRetryableError(RuntimeError):
+    pass
+
+
+class RetryBackoff:
+    def __init__(self, initial_delay: int = INITIAL_RETRY_DELAY, max_delay: int = MAX_RETRY_DELAY) -> None:
+        self.initial_delay = initial_delay
+        self.max_delay = max_delay
+        self.delay = initial_delay
+
+    def reset(self) -> None:
+        self.delay = self.initial_delay
+
+    def next_delay(self) -> int:
+        current = self.delay
+        self.delay = min(self.max_delay, self.delay * 2)
+        return current
 
 
 def load_config(path: str) -> dict[str, Any]:
@@ -43,6 +67,7 @@ def load_config(path: str) -> dict[str, Any]:
         config = {}
     env_map = {
         "telegram_bot_token": "TELEGRAM_BOT_TOKEN",
+        "telegram_api_base": "TELEGRAM_API_BASE",
         "backend_base": "WPPCHAT_BACKEND_URL",
         "backend_token": "WPPCHAT_X_TOKEN",
         "sheet_url": "CHANNEL_QUERY_SHEET_URL",
@@ -55,8 +80,22 @@ def load_config(path: str) -> dict[str, Any]:
     return config
 
 
-def telegram_request(token: str, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    url = f"https://api.telegram.org/bot{token}/{method}"
+def normalize_telegram_api_base(value: Any) -> str:
+    text = str(value or DEFAULT_TELEGRAM_API_BASE).strip()
+    if not text:
+        text = DEFAULT_TELEGRAM_API_BASE
+    if "://" not in text:
+        text = "https://" + text
+    return text.rstrip("/")
+
+
+def telegram_request(
+    token: str,
+    method: str,
+    payload: dict[str, Any] | None = None,
+    api_base: str = DEFAULT_TELEGRAM_API_BASE,
+) -> dict[str, Any]:
+    url = f"{normalize_telegram_api_base(api_base)}/bot{token}/{method}"
     data = None
     headers = {"Accept": "application/json"}
     if payload is not None:
@@ -68,20 +107,34 @@ def telegram_request(token: str, method: str, payload: dict[str, Any] | None = N
             result = json.loads(response.read().decode("utf-8", errors="replace"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:500]
+        if exc.code in RETRYABLE_TELEGRAM_HTTP_STATUS:
+            raise TelegramRetryableError(f"Telegram API临时错误：HTTP {exc.code} {body}") from exc
         raise RuntimeError(f"Telegram API错误：HTTP {exc.code} {body}") from exc
+    except (TimeoutError, socket.timeout) as exc:
+        raise TelegramRetryableError("Telegram API网络超时") from exc
+    except urllib.error.URLError as exc:
+        reason = exc.reason if hasattr(exc, "reason") else exc
+        raise TelegramRetryableError(f"Telegram API网络错误：{reason}") from exc
     if not result.get("ok"):
         raise RuntimeError(f"Telegram API错误：{result}")
     return result
 
 
-def get_updates(token: str, offset: int | None) -> list[dict[str, Any]]:
+def get_updates(token: str, offset: int | None, api_base: str) -> list[dict[str, Any]]:
     payload: dict[str, Any] = {"timeout": 55, "allowed_updates": ["message"]}
     if offset is not None:
         payload["offset"] = offset
-    return telegram_request(token, "getUpdates", payload).get("result") or []
+    return telegram_request(token, "getUpdates", payload, api_base).get("result") or []
 
 
-def send_message(token: str, chat_id: int, text: str, reply_to_message_id: int | None = None, parse_mode: str | None = None) -> None:
+def send_message(
+    token: str,
+    chat_id: int,
+    text: str,
+    reply_to_message_id: int | None = None,
+    parse_mode: str | None = None,
+    api_base: str = DEFAULT_TELEGRAM_API_BASE,
+) -> None:
     for chunk in split_message(text):
         payload: dict[str, Any] = {
             "chat_id": chat_id,
@@ -97,6 +150,7 @@ def send_message(token: str, chat_id: int, text: str, reply_to_message_id: int |
             token,
             "sendMessage",
             payload,
+            api_base,
         )
 
 
@@ -246,7 +300,7 @@ def query_text(text: str, config: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def handle_message(token: str, message: dict[str, Any], config: dict[str, Any]) -> None:
+def handle_message(token: str, message: dict[str, Any], config: dict[str, Any], api_base: str) -> None:
     chat = message.get("chat") or {}
     chat_id = chat.get("id")
     message_id = message.get("message_id")
@@ -262,6 +316,7 @@ def handle_message(token: str, message: dict[str, Any], config: dict[str, Any]) 
             "支持批量：一行一个，或用空格、逗号分隔。\n"
             "例：\nabc915915\nbvcxzsdfgh\n查IP 172.15.217.52",
             reply_to_message_id=message_id,
+            api_base=api_base,
         )
         return
     try:
@@ -269,9 +324,11 @@ def handle_message(token: str, message: dict[str, Any], config: dict[str, Any]) 
             reply = query_ip_text(text, config)
         else:
             reply = query_text(text, config)
-        send_message(token, chat_id, reply, reply_to_message_id=message_id, parse_mode="HTML")
+        send_message(token, chat_id, reply, reply_to_message_id=message_id, parse_mode="HTML", api_base=api_base)
+    except TelegramRetryableError:
+        raise
     except Exception as exc:
-        send_message(token, chat_id, f"查询失败：{exc}", reply_to_message_id=message_id)
+        send_message(token, chat_id, f"查询失败：{exc}", reply_to_message_id=message_id, api_base=api_base)
 
 
 def main() -> None:
@@ -284,26 +341,42 @@ def main() -> None:
     if not token:
         print("缺少 telegram_bot_token。请填写 telegram_config.json 或 TELEGRAM_BOT_TOKEN。", file=sys.stderr)
         sys.exit(1)
+    api_base = normalize_telegram_api_base(config.get("telegram_api_base"))
 
-    me = telegram_request(token, "getMe")
+    startup_backoff = RetryBackoff()
+    while True:
+        try:
+            me = telegram_request(token, "getMe", api_base=api_base)
+            break
+        except TelegramRetryableError as exc:
+            delay = startup_backoff.next_delay()
+            print(f"Telegram连接暂时失败：{exc}。{delay}秒后重试。", file=sys.stderr)
+            time.sleep(delay)
     username = (me.get("result") or {}).get("username", "")
     print(f"Telegram机器人已启动：@{username}" if username else "Telegram机器人已启动")
 
     offset: int | None = None
+    loop_backoff = RetryBackoff()
     while True:
         try:
-            updates = get_updates(token, offset)
+            updates = get_updates(token, offset, api_base)
+            loop_backoff.reset()
             for update in updates:
                 offset = int(update["update_id"]) + 1
                 message = update.get("message")
                 if message:
-                    handle_message(token, message, config)
+                    handle_message(token, message, config, api_base)
         except KeyboardInterrupt:
             print("\n已停止。")
             return
+        except TelegramRetryableError as exc:
+            delay = loop_backoff.next_delay()
+            print(f"Telegram连接暂时失败：{exc}。{delay}秒后重试。", file=sys.stderr)
+            time.sleep(delay)
         except Exception as exc:
-            print(f"运行错误：{exc}", file=sys.stderr)
-            time.sleep(5)
+            delay = loop_backoff.next_delay()
+            print(f"运行错误：{exc}。{delay}秒后重试。", file=sys.stderr)
+            time.sleep(delay)
 
 
 if __name__ == "__main__":
