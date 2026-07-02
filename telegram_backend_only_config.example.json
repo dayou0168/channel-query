@@ -1,0 +1,7 @@
+{
+  "telegram_bot_token": "123456:replace_with_botfather_token",
+  "backend_base": "https://zhheew.bw009.com",
+  "backend_token": "",
+  "backend_only": true,
+  "ip_query_limit": 500
+}

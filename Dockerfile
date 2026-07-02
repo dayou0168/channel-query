@@ -13,7 +13,7 @@ RUN apt-get update \
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY channel_query_app.py telegram_bot.py telegram_config.example.json ./
+COPY channel_query_app.py telegram_bot.py telegram_config.example.json telegram_backend_only_config.example.json ./
 
 RUN mkdir -p /data /config
 

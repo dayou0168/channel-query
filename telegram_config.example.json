@@ -2,6 +2,7 @@
   "telegram_bot_token": "123456:replace_with_botfather_token",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
+  "backend_only": false,
   "sheet_url": "https://docs.google.com/spreadsheets/d/your_sheet_id/edit?gid=0#gid=0",
   "extra_sheet_urls": "",
   "sheet_csv_path": "",

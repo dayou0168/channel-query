@@ -25,9 +25,11 @@
 - `channel_query_app.py`：网页工具和核心查询逻辑。
 - `telegram_bot.py`：Telegram 群机器人。
 - `telegram_config.example.json`：机器人配置模板。
+- `telegram_backend_only_config.example.json`：不依赖 Google、只查后台的机器人配置模板。
 - `.env.example`：服务器环境变量模板。
 - `requirements.txt`：Python 依赖。
 - `docs/INSTALL.md`：裸机 Linux 和 Docker Compose 两种一键部署方式。
+- `docs/BACKEND_ONLY_BOT.md`：后台-only 查询机器人配置说明。
 - `docs/TIANMA_CPA.md`：天马 / CPA 附加映射表配置说明。
 - `docs/DEPLOY_LINUX.md`：Linux 服务器部署流程。
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 流程。
@@ -56,6 +58,7 @@
 - 支持后台 token 过期后自动续登录，前提是已经保存后台账号密码和 TOTP 绑定密钥。
 - 支持 `查IP` 命令查询同注册 IP 账号。
 - 支持附加渠道映射表 `extra_sheet_urls`，可用于天马 / CPA 这类额外来源映射。
+- 支持 `backend_only` 模式，不依赖 Google，只查后台注册来源和同 IP 账号。
 - 支持裸机 Linux 一键部署、Docker Compose 源码构建部署、Docker Compose 直接 YAML 部署。
 
 ## 后台接口

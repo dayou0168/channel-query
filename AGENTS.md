@@ -6,6 +6,7 @@
 
 - `docs/PROJECT_STATE.md`
 - `docs/INSTALL.md`
+- `docs/BACKEND_ONLY_BOT.md`
 - `docs/TIANMA_CPA.md`
 - `docs/DEPLOY_LINUX.md`
 - `README.md`

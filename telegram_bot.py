@@ -34,6 +34,7 @@ import channel_query_app as core
 
 MAX_MESSAGE_LEN = 3800
 TELEGRAM_RETRYABLE_HTTP_CODES = {500, 502, 503, 504}
+TRUE_VALUES = {"1", "true", "yes", "y", "on", "是", "启用", "开启"}
 
 
 class TelegramApiError(RuntimeError):
@@ -53,6 +54,7 @@ def load_config(path: str) -> dict[str, Any]:
         "telegram_bot_token": "TELEGRAM_BOT_TOKEN",
         "backend_base": "WPPCHAT_BACKEND_URL",
         "backend_token": "WPPCHAT_X_TOKEN",
+        "backend_only": "CHANNEL_QUERY_BACKEND_ONLY",
         "sheet_url": "CHANNEL_QUERY_SHEET_URL",
         "extra_sheet_urls": "CHANNEL_QUERY_EXTRA_SHEET_URLS",
         "sheet_csv_path": "CHANNEL_QUERY_SHEET_CSV_PATH",
@@ -62,6 +64,15 @@ def load_config(path: str) -> dict[str, Any]:
         if os.environ.get(env_name):
             config[key] = os.environ[env_name]
     return config
+
+
+def config_enabled(config: dict[str, Any], key: str) -> bool:
+    value = config.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value or "").strip().lower() in TRUE_VALUES
 
 
 def telegram_request(token: str, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -268,6 +279,41 @@ def query_text(text: str, config: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def query_backend_only_text(text: str, config: dict[str, Any]) -> str:
+    accounts = core.parse_accounts(text)
+    if not accounts:
+        return "请发送 WPPChat 账号，可以一行一个，也可以用空格或逗号分隔。"
+
+    token, _ = core.get_backend_token(config.get("backend_token") or "")
+    backend_base = config.get("backend_base") or core.BACKEND_BASE_URL
+    lines = ["查询结果："]
+    found = 0
+    for account in accounts:
+        row = core.call_backend_user(account, token, backend_base)
+        source = row.get("sms_phone", "") if row else ""
+        source_id = core.normalize_source(source)
+        register_ip = core.first_backend_value(row, "address", "register_ip", "ip")
+        register_province = core.first_backend_value(row, "font_rgb", "province", "register_province", "province_name", "city")
+        register_time = core.format_backend_time(core.first_backend_value(row, "register_time", "created", "create_time"))
+        status = "已查到" if row else "后台未查到账号"
+        if row:
+            found += 1
+        lines.extend(
+            [
+                f"账号：{html_code(account)}",
+                f"注册IP：{html_code(register_ip)}",
+                f"注册省份：{html_text(display_province(register_province))}",
+                f"注册时间：{html_text(register_time)}",
+                f"注册来源：{html_code(source_id or source or '未查到')}",
+                f"状态：{html_text(status)}",
+                "",
+            ]
+        )
+        time.sleep(0.05)
+    lines.append(f"合计 {len(accounts)} 个，查到 {found} 个，未查到 {len(accounts) - found} 个。")
+    return "\n".join(lines)
+
+
 def handle_message(token: str, message: dict[str, Any], config: dict[str, Any]) -> None:
     chat = message.get("chat") or {}
     chat_id = chat.get("id")
@@ -276,19 +322,32 @@ def handle_message(token: str, message: dict[str, Any], config: dict[str, Any]) 
     if not chat_id:
         return
     if text in ("/start", "/help"):
+        if config_enabled(config, "backend_only"):
+            help_text = (
+                "发送 WPPChat 账号即可查询注册IP、注册省份、注册时间和注册来源。\n"
+                "发送 查IP 1.2.3.4 即可查询同IP注册账号和注册时间。\n"
+                "支持批量：一行一个，或用空格、逗号分隔。\n"
+                "例：\nabc915915\nbvcxzsdfgh\n查IP 172.15.217.52"
+            )
+        else:
+            help_text = (
+                "发送 WPPChat 账号即可查询注册IP、注册省份、注册来源和渠道编码。\n"
+                "发送 查IP 1.2.3.4 即可查询同IP注册账号和注册时间。\n"
+                "支持批量：一行一个，或用空格、逗号分隔。\n"
+                "例：\nabc915915\nbvcxzsdfgh\n查IP 172.15.217.52"
+            )
         send_message(
             token,
             chat_id,
-            "发送 WPPChat 账号即可查询注册IP、注册省份、注册来源和渠道编码。\n"
-            "发送 查IP 1.2.3.4 即可查询同IP注册账号和注册时间。\n"
-            "支持批量：一行一个，或用空格、逗号分隔。\n"
-            "例：\nabc915915\nbvcxzsdfgh\n查IP 172.15.217.52",
+            help_text,
             reply_to_message_id=message_id,
         )
         return
     try:
         if is_ip_command(text) or parse_ip_query(text):
             reply = query_ip_text(text, config)
+        elif config_enabled(config, "backend_only"):
+            reply = query_backend_only_text(text, config)
         else:
             reply = query_text(text, config)
         send_message(token, chat_id, reply, reply_to_message_id=message_id, parse_mode="HTML")
