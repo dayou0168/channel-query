@@ -26,6 +26,10 @@
 - `.google_oauth_token.enc`
 - `channels.csv`
 - `.channel_query_draft.json`
+- `.telegram_chats.json`
+- `telegram-state-backups/`
+- `channel-query-runtime-*.tar.gz`
+- `channel-query-runtime-*.tar.gz.enc`
 
 如果必须新增配置，优先更新示例文件，例如 `.env.example` 或 `telegram_config.example.json`。
 

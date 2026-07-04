@@ -30,3 +30,16 @@ services:
     ports:
       - "127.0.0.1:8766:8766"
     command: ["python", "channel_query_app.py", "--host", "0.0.0.0", "--port", "8766"]
+
+  telegram-state-backup:
+    image: ${CHANNEL_QUERY_IMAGE:-ghcr.io/dayou0168/channel-query:latest}
+    profiles:
+      - backup
+    env_file:
+      - .env
+    environment:
+      CHANNEL_QUERY_DATA_DIR: /data
+    volumes:
+      - ./data:/data
+      - ./config:/config:ro
+    command: ["python", "scripts/backup-telegram-state.py", "--config", "/config/telegram_config.json"]

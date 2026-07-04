@@ -14,6 +14,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY channel_query_app.py telegram_bot.py telegram_config.example.json ./
+COPY scripts/backup-telegram-state.py scripts/backup-telegram-state.py
 
 RUN mkdir -p /data /config
 

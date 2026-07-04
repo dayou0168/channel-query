@@ -13,6 +13,10 @@
 - `.google_oauth_token.enc`
 - `channels.csv`
 - `.channel_query_draft.json`
+- `.telegram_chats.json`
+- `telegram-state-backups/`
+- `channel-query-runtime-*.tar.gz`
+- `channel-query-runtime-*.tar.gz.enc`
 
 项目里的 `.gitignore` 已经排除了它们。
 

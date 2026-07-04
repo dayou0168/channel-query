@@ -21,4 +21,5 @@
 - GitHub 仓库选择 Private。
 - 服务器上 `.env`、`telegram_config.json`、`service-account.json` 使用 `chmod 600`。
 - `CHANNEL_QUERY_MASTER_KEY` 只保存在服务器，不发到聊天窗口，不上传 GitHub。
+- 运行时灾备包包含 `.env`、Bot Token、Google 凭证和加密状态文件，必须私密保存，建议使用 `CHANNEL_QUERY_BACKUP_PASSPHRASE_FILE` 加密后再传到备份服务器。
 - 如果怀疑 token 泄露，立即在 BotFather、后台系统、Google Cloud 里轮换密钥。

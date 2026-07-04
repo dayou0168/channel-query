@@ -35,6 +35,8 @@ import channel_query_app as core
 
 MAX_MESSAGE_LEN = 3800
 DEFAULT_TELEGRAM_API_BASE = "https://api.telegram.org"
+DEFAULT_TELEGRAM_ALLOWED_UPDATES = ["message", "my_chat_member"]
+TELEGRAM_CHAT_REGISTRY_FILE_ENV = "TELEGRAM_CHAT_REGISTRY_FILE"
 RETRYABLE_TELEGRAM_HTTP_STATUS = {500, 502, 503, 504}
 INITIAL_RETRY_DELAY = 5
 MAX_RETRY_DELAY = 300
@@ -68,6 +70,8 @@ def load_config(path: str) -> dict[str, Any]:
     env_map = {
         "telegram_bot_token": "TELEGRAM_BOT_TOKEN",
         "telegram_api_base": "TELEGRAM_API_BASE",
+        "telegram_allowed_updates": "TELEGRAM_ALLOWED_UPDATES",
+        "telegram_chat_registry_file": TELEGRAM_CHAT_REGISTRY_FILE_ENV,
         "backend_base": "WPPCHAT_BACKEND_URL",
         "backend_token": "WPPCHAT_X_TOKEN",
         "sheet_url": "CHANNEL_QUERY_SHEET_URL",
@@ -87,6 +91,103 @@ def normalize_telegram_api_base(value: Any) -> str:
     if "://" not in text:
         text = "https://" + text
     return text.rstrip("/")
+
+
+def parse_allowed_updates(value: Any) -> list[str]:
+    if not value:
+        return list(DEFAULT_TELEGRAM_ALLOWED_UPDATES)
+    if isinstance(value, list):
+        updates = [str(item).strip() for item in value if str(item).strip()]
+    else:
+        updates = [item.strip() for item in re.split(r"[\s,，;；]+", str(value)) if item.strip()]
+    return updates or list(DEFAULT_TELEGRAM_ALLOWED_UPDATES)
+
+
+def telegram_chat_registry_path(config: dict[str, Any] | None = None) -> Path:
+    value = ""
+    if config:
+        value = str(config.get("telegram_chat_registry_file") or "").strip()
+    value = value or os.environ.get(TELEGRAM_CHAT_REGISTRY_FILE_ENV, "").strip()
+    path = Path(value).expanduser() if value else core.DATA_DIR / ".telegram_chats.json"
+    if not path.is_absolute():
+        path = (core.DATA_DIR / path).resolve()
+    return path
+
+
+def load_chat_registry(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"version": 1, "chats": {}}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": 1, "chats": {}}
+    if not isinstance(data, dict):
+        return {"version": 1, "chats": {}}
+    if not isinstance(data.get("chats"), dict):
+        data["chats"] = {}
+    data.setdefault("version", 1)
+    return data
+
+
+def save_chat_registry(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+def chat_summary(chat: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: chat.get(key)
+        for key in ("id", "type", "title", "username", "first_name", "last_name")
+        if chat.get(key) is not None
+    }
+
+
+def record_chat(
+    chat: dict[str, Any] | None,
+    config: dict[str, Any],
+    source: str,
+    member_update: dict[str, Any] | None = None,
+) -> None:
+    if not chat or chat.get("id") is None:
+        return
+    try:
+        now = int(time.time())
+        path = telegram_chat_registry_path(config)
+        data = load_chat_registry(path)
+        chats = data.setdefault("chats", {})
+        chat_id = str(chat["id"])
+        entry = chats.get(chat_id) if isinstance(chats.get(chat_id), dict) else {}
+        previous_last_seen = int(entry.get("last_seen_at") or 0)
+
+        changed = False
+        for key, value in chat_summary(chat).items():
+            if entry.get(key) != value:
+                changed = True
+            entry[key] = value
+
+        if member_update:
+            changed = True
+            new_member = member_update.get("new_chat_member") or {}
+            old_member = member_update.get("old_chat_member") or {}
+            if new_member:
+                entry["bot_status"] = new_member.get("status")
+                entry["bot_member"] = new_member
+            if old_member:
+                entry["previous_bot_status"] = old_member.get("status")
+
+        if not changed and now - previous_last_seen < 300:
+            return
+
+        entry.setdefault("first_seen_at", now)
+        entry["last_seen_at"] = now
+        entry["last_seen_source"] = source
+        chats[chat_id] = entry
+        data["updated_at"] = now
+        save_chat_registry(path, data)
+    except Exception as exc:
+        print(f"保存Telegram群登记失败：{exc}", file=sys.stderr)
 
 
 def telegram_request(
@@ -120,8 +221,8 @@ def telegram_request(
     return result
 
 
-def get_updates(token: str, offset: int | None, api_base: str) -> list[dict[str, Any]]:
-    payload: dict[str, Any] = {"timeout": 55, "allowed_updates": ["message"]}
+def get_updates(token: str, offset: int | None, api_base: str, allowed_updates: list[str]) -> list[dict[str, Any]]:
+    payload: dict[str, Any] = {"timeout": 55, "allowed_updates": allowed_updates}
     if offset is not None:
         payload["offset"] = offset
     return telegram_request(token, "getUpdates", payload, api_base).get("result") or []
@@ -302,6 +403,7 @@ def query_text(text: str, config: dict[str, Any]) -> str:
 
 def handle_message(token: str, message: dict[str, Any], config: dict[str, Any], api_base: str) -> None:
     chat = message.get("chat") or {}
+    record_chat(chat, config, "message")
     chat_id = chat.get("id")
     message_id = message.get("message_id")
     text = (message.get("text") or "").strip()
@@ -331,6 +433,11 @@ def handle_message(token: str, message: dict[str, Any], config: dict[str, Any], 
         send_message(token, chat_id, f"查询失败：{exc}", reply_to_message_id=message_id, api_base=api_base)
 
 
+def handle_my_chat_member(update: dict[str, Any], config: dict[str, Any]) -> None:
+    member_update = update.get("my_chat_member") or {}
+    record_chat(member_update.get("chat") or {}, config, "my_chat_member", member_update)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="WPPChat 渠道查询 Telegram 机器人")
     parser.add_argument("--config", default="telegram_config.json")
@@ -342,6 +449,7 @@ def main() -> None:
         print("缺少 telegram_bot_token。请填写 telegram_config.json 或 TELEGRAM_BOT_TOKEN。", file=sys.stderr)
         sys.exit(1)
     api_base = normalize_telegram_api_base(config.get("telegram_api_base"))
+    allowed_updates = parse_allowed_updates(config.get("telegram_allowed_updates"))
 
     startup_backoff = RetryBackoff()
     while True:
@@ -359,13 +467,15 @@ def main() -> None:
     loop_backoff = RetryBackoff()
     while True:
         try:
-            updates = get_updates(token, offset, api_base)
+            updates = get_updates(token, offset, api_base, allowed_updates)
             loop_backoff.reset()
             for update in updates:
                 offset = int(update["update_id"]) + 1
                 message = update.get("message")
                 if message:
                     handle_message(token, message, config, api_base)
+                if update.get("my_chat_member"):
+                    handle_my_chat_member(update, config)
         except KeyboardInterrupt:
             print("\n已停止。")
             return

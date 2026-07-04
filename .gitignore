@@ -19,7 +19,12 @@ config/
 
 # Local app state and private data
 .channel_query_draft.json
+.telegram_chats.json
+.telegram_chats.json.tmp
 channels.csv
+telegram-state-backups/
+channel-query-runtime-*.tar.gz
+channel-query-runtime-*.tar.gz.enc
 
 # Environment and encrypted secrets
 .env

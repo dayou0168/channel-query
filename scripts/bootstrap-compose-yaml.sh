@@ -35,7 +35,7 @@ install_system_packages() {
   if [ "$SKIP_UPGRADE" != "1" ]; then
     apt-get -y upgrade
   fi
-  apt-get install -y ca-certificates curl docker.io docker-compose-plugin
+  apt-get install -y ca-certificates curl openssl rsync docker.io docker-compose-plugin
   systemctl enable --now docker
 }
 
@@ -56,10 +56,13 @@ generate_fernet_key() {
 }
 
 prepare_files() {
-  mkdir -p "$APP_DIR/config" "$APP_DIR/data"
+  mkdir -p "$APP_DIR/config" "$APP_DIR/data" "$APP_DIR/scripts"
   chmod 700 "$APP_DIR/data"
 
   download "${RAW_BASE}/docker-compose.deploy.yml" "$APP_DIR/docker-compose.yml"
+  download "${RAW_BASE}/scripts/backup-runtime.sh" "$APP_DIR/scripts/backup-runtime.sh"
+  download "${RAW_BASE}/scripts/restore-runtime.sh" "$APP_DIR/scripts/restore-runtime.sh"
+  chmod 700 "$APP_DIR/scripts/backup-runtime.sh" "$APP_DIR/scripts/restore-runtime.sh"
 
   if [ ! -f "$APP_DIR/.env" ]; then
     printf "CHANNEL_QUERY_MASTER_KEY=%s\n" "$(generate_fernet_key)" >"$APP_DIR/.env"
@@ -106,3 +109,4 @@ echo "2. 上传 ${APP_DIR}/config/service-account.json，并把 Google 表格共
 echo "3. 启动机器人：cd ${APP_DIR} && docker compose up -d bot"
 echo "4. 如需网页工具：cd ${APP_DIR} && docker compose --profile web up -d web"
 echo "5. 查看日志：cd ${APP_DIR} && docker compose logs -f bot"
+echo "6. 创建灾备包：CHANNEL_QUERY_APP_DIR=${APP_DIR} ${APP_DIR}/scripts/backup-runtime.sh"

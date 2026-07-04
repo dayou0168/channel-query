@@ -57,13 +57,14 @@ curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/script
 
 - `apt update`
 - `apt upgrade -y`
-- 安装 `git`、`python3`、`python3-venv`、`python3-pip`
+- 安装 `git`、`openssl`、`rsync`、`python3`、`python3-venv`、`python3-pip`
 - 从 GitHub 拉取项目到 `/opt/channel-query`
 - 创建 Python 虚拟环境 `.venv`
 - 安装 `requirements.txt`
 - 自动生成 `.env` 里的 `CHANNEL_QUERY_MASTER_KEY`
 - 创建 `telegram_config.json` 模板
 - 创建 systemd 服务 `channel-query-bot`
+- 提供运行时灾备和恢复脚本
 - 如果配置已经填好，会自动启动机器人；如果还是模板内容，会暂不启动
 
 如果你不想执行系统升级，只想安装依赖：
@@ -158,26 +159,34 @@ unset CHANNEL_QUERY_GITHUB_TOKEN
 
 - `apt update`
 - `apt upgrade -y`
-- 安装 `docker.io`、`docker-compose-plugin`
+- 安装 `openssl`、`rsync`、`docker.io`、`docker-compose-plugin`
 - 创建 `/opt/channel-query/docker-compose.yml`
 - 创建 `/opt/channel-query/.env`
 - 创建 `/opt/channel-query/config/telegram_config.json`
 - 创建 `/opt/channel-query/data/`
+- 创建 `/opt/channel-query/scripts/backup-runtime.sh` 和 `/opt/channel-query/scripts/restore-runtime.sh`
 - 拉取 `ghcr.io/dayou0168/channel-query:latest`
 - 如果配置已经填好，会自动启动机器人；如果还是模板内容，会暂不启动
 
 手动下载 YAML 的方式：
 
 ```bash
-sudo mkdir -p /opt/channel-query/config /opt/channel-query/data
+sudo mkdir -p /opt/channel-query/config /opt/channel-query/data /opt/channel-query/scripts
 cd /opt/channel-query
 sudo curl -fsSL \
   https://raw.githubusercontent.com/dayou0168/channel-query/main/docker-compose.deploy.yml \
   -o docker-compose.yml
 sudo curl -fsSL \
+  https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/backup-runtime.sh \
+  -o scripts/backup-runtime.sh
+sudo curl -fsSL \
+  https://raw.githubusercontent.com/dayou0168/channel-query/main/scripts/restore-runtime.sh \
+  -o scripts/restore-runtime.sh
+sudo curl -fsSL \
   https://raw.githubusercontent.com/dayou0168/channel-query/main/telegram_config.example.json \
   -o config/telegram_config.json
 sudo sh -c 'printf "CHANNEL_QUERY_MASTER_KEY=%s\n" "$(head -c 32 /dev/urandom | base64 | tr "+/" "-_")" > .env'
+sudo chmod 700 scripts/backup-runtime.sh scripts/restore-runtime.sh
 sudo chmod 600 .env config/telegram_config.json
 sudo docker compose pull
 sudo docker compose up -d bot
@@ -204,12 +213,13 @@ curl -fsSL https://raw.githubusercontent.com/dayou0168/channel-query/main/script
 
 - `apt update`
 - `apt upgrade -y`
-- 安装 `git`、`docker.io`、`docker-compose-plugin`
+- 安装 `git`、`openssl`、`rsync`、`docker.io`、`docker-compose-plugin`
 - 启动 Docker 服务
 - 从 GitHub 拉取项目到 `/opt/channel-query`
 - 创建 `.env`
 - 创建 `config/telegram_config.json`
 - 创建 `data/` 持久化目录
+- 提供运行时灾备和恢复脚本
 - 构建 Docker 镜像
 - 如果配置已经填好，会自动启动机器人；如果还是模板内容，会暂不启动
 
@@ -229,7 +239,7 @@ Docker Compose 源码构建部署配置文件：
 /opt/channel-query/data/
 ```
 
-`data/` 会保存加密后的后台 token、自动续登录配置和 Google token。不要删除。
+`data/` 会保存加密后的后台 token、自动续登录配置、Google token、Telegram 群登记和状态快照。不要删除。
 
 启动机器人：
 
@@ -298,6 +308,8 @@ Docker Compose 源码构建路径：
 {
   "telegram_bot_token": "从BotFather拿到的token",
   "telegram_api_base": "https://api.telegram.org",
+  "telegram_allowed_updates": ["message", "my_chat_member"],
+  "telegram_chat_registry_file": "",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "Google表格链接",
@@ -312,6 +324,8 @@ Docker Compose 示例：
 {
   "telegram_bot_token": "从BotFather拿到的token",
   "telegram_api_base": "https://api.telegram.org",
+  "telegram_allowed_updates": ["message", "my_chat_member"],
+  "telegram_chat_registry_file": "",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "Google表格链接",
@@ -324,6 +338,38 @@ Docker Compose 示例：
 
 ```text
 TELEGRAM_API_BASE=https://你的telegram-api反代域名
+```
+
+## 备份与恢复
+
+完整流程看：
+
+```text
+docs/BACKUP_RESTORE.md
+```
+
+创建运行时灾备包：
+
+```bash
+sudo CHANNEL_QUERY_APP_DIR=/opt/channel-query /opt/channel-query/scripts/backup-runtime.sh
+```
+
+如果要把备份包自动传到另一台备份服务器，先配置 SSH key，再设置：
+
+```bash
+sudo CHANNEL_QUERY_APP_DIR=/opt/channel-query \
+  CHANNEL_QUERY_BACKUP_DIR=/opt/channel-query-backups \
+  CHANNEL_QUERY_BACKUP_PASSPHRASE_FILE=/root/.channel-query-backup-passphrase \
+  CHANNEL_QUERY_BACKUP_REMOTE=backup-user@备份服务器IP:/srv/backups/channel-query/ \
+  /opt/channel-query/scripts/backup-runtime.sh
+```
+
+恢复到新服务器时，先安装项目，再执行：
+
+```bash
+sudo CHANNEL_QUERY_APP_DIR=/opt/channel-query \
+  CHANNEL_QUERY_BACKUP_PASSPHRASE_FILE=/root/.channel-query-backup-passphrase \
+  /opt/channel-query/scripts/restore-runtime.sh /root/channel-query-runtime-xxxx.tar.gz.enc
 ```
 
 ## 两种方式怎么选

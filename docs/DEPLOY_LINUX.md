@@ -14,7 +14,7 @@ docs/INSTALL.md
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip git
+sudo apt install -y python3 python3-venv python3-pip git openssl rsync
 ```
 
 如果创建虚拟环境时报错 `ensurepip is not available`，继续执行：
@@ -95,6 +95,8 @@ nano telegram_config.json
 {
   "telegram_bot_token": "从BotFather拿到的token",
   "telegram_api_base": "https://api.telegram.org",
+  "telegram_allowed_updates": ["message", "my_chat_member"],
+  "telegram_chat_registry_file": "",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "你的Google表格链接",
@@ -208,7 +210,46 @@ sudo systemctl status channel-query-bot --no-pager
 sudo journalctl -u channel-query-bot -f
 ```
 
-## 9. 更新代码
+## 9. 备份与恢复
+
+完整流程看：
+
+```text
+docs/BACKUP_RESTORE.md
+```
+
+创建运行时灾备包：
+
+```bash
+sudo CHANNEL_QUERY_APP_DIR=/opt/channel-query /opt/channel-query/scripts/backup-runtime.sh
+```
+
+如果需要加密并传到另一台备份服务器：
+
+```bash
+sudo sh -c 'umask 077; openssl rand -base64 48 > /root/.channel-query-backup-passphrase'
+sudo CHANNEL_QUERY_APP_DIR=/opt/channel-query \
+  CHANNEL_QUERY_BACKUP_DIR=/opt/channel-query-backups \
+  CHANNEL_QUERY_BACKUP_PASSPHRASE_FILE=/root/.channel-query-backup-passphrase \
+  CHANNEL_QUERY_BACKUP_REMOTE=backup-user@备份服务器IP:/srv/backups/channel-query/ \
+  /opt/channel-query/scripts/backup-runtime.sh
+```
+
+恢复到新服务器：
+
+```bash
+sudo CHANNEL_QUERY_APP_DIR=/opt/channel-query \
+  CHANNEL_QUERY_BACKUP_PASSPHRASE_FILE=/root/.channel-query-backup-passphrase \
+  /opt/channel-query/scripts/restore-runtime.sh /root/channel-query-runtime-xxxx.tar.gz.enc
+```
+
+恢复后重启：
+
+```bash
+sudo systemctl restart channel-query-bot
+```
+
+## 10. 更新代码
 
 以后代码更新：
 
@@ -217,7 +258,7 @@ cd /opt/channel-query
 sudo git pull
 source .venv/bin/activate
 pip install -r requirements.txt
-python -m py_compile channel_query_app.py telegram_bot.py
+python -m py_compile channel_query_app.py telegram_bot.py scripts/backup-telegram-state.py
 sudo systemctl restart channel-query-bot
 ```
 

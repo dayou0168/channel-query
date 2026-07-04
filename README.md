@@ -8,6 +8,7 @@
 - `docs/PROJECT_STATE.md`：当前项目功能、服务器现状、不要上传的敏感文件。
 - `docs/INSTALL.md`：裸机 Linux 和 Docker Compose 两种一键部署方式。
 - `docs/DEPLOY_LINUX.md`：Linux 服务器部署和更新流程。
+- `docs/BACKUP_RESTORE.md`：机器人配置、群登记、权限快照和灾备恢复流程。
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 的安全流程。
 - `SECURITY.md`：密钥、token、服务账号 JSON 的安全注意事项。
 
@@ -162,6 +163,29 @@ WPPChat
 ```
 
 机器人会回复这个注册 IP 下的所有账号和注册时间。
+
+## 备份与恢复
+
+完整灾备看：
+
+```text
+docs/BACKUP_RESTORE.md
+```
+
+创建运行时灾备包：
+
+```bash
+sudo CHANNEL_QUERY_APP_DIR=/opt/channel-query /opt/channel-query/scripts/backup-runtime.sh
+```
+
+Docker Compose 额外导出 Telegram 状态快照：
+
+```bash
+cd /opt/channel-query
+sudo docker compose --profile backup run --rm telegram-state-backup
+```
+
+要让新服务器接替旧服务器，核心是恢复同一个 `telegram_config.json`、`.env`、Google 凭证和本地加密状态文件。Telegram 群关系和管理员权限在 Telegram 服务器上；只要继续使用同一个 Bot Token，且机器人没有被移出原群，新服务器启动后会继续在原群工作。
 
 ## Linux 服务器部署
 

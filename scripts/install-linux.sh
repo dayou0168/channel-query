@@ -31,7 +31,7 @@ install_system_packages() {
   if [ "$SKIP_UPGRADE" != "1" ]; then
     apt-get -y upgrade
   fi
-  apt-get install -y ca-certificates curl git python3 python3-venv python3-pip
+  apt-get install -y ca-certificates curl git openssl rsync python3 python3-venv python3-pip
 }
 
 git_with_auth() {
@@ -63,7 +63,7 @@ ensure_python_env() {
   fi
   .venv/bin/python -m pip install --upgrade pip
   .venv/bin/pip install -r requirements.txt
-  .venv/bin/python -m py_compile channel_query_app.py telegram_bot.py
+  .venv/bin/python -m py_compile channel_query_app.py telegram_bot.py scripts/backup-telegram-state.py
 }
 
 generate_master_key() {
@@ -93,6 +93,8 @@ ensure_config_file() {
 {
   "telegram_bot_token": "123456:replace_with_botfather_token",
   "telegram_api_base": "https://api.telegram.org",
+  "telegram_allowed_updates": ["message", "my_chat_member"],
+  "telegram_chat_registry_file": "",
   "backend_base": "https://zhheew.bw009.com",
   "backend_token": "",
   "sheet_url": "https://docs.google.com/spreadsheets/d/your_sheet_id/edit?gid=0#gid=0",
@@ -102,6 +104,11 @@ ensure_config_file() {
 JSON
   fi
   chmod 600 telegram_config.json
+}
+
+ensure_script_permissions() {
+  cd "$APP_DIR"
+  chmod 700 scripts/backup-runtime.sh scripts/restore-runtime.sh 2>/dev/null || true
 }
 
 install_systemd_service() {
@@ -141,6 +148,7 @@ prepare_source
 ensure_python_env
 ensure_env_file
 ensure_config_file
+ensure_script_permissions
 install_systemd_service
 maybe_start_service
 
@@ -155,6 +163,7 @@ echo "2. 上传 ${APP_DIR}/service-account.json，并把 Google 表格共享给 
 echo "3. 如需网页登录后台保存 token，执行：${APP_DIR}/scripts/start-web.sh"
 echo "4. 配置完成后启动机器人：systemctl restart ${SERVICE_NAME}"
 echo "5. 查看日志：journalctl -u ${SERVICE_NAME} -f"
+echo "6. 创建灾备包：CHANNEL_QUERY_APP_DIR=${APP_DIR} ${APP_DIR}/scripts/backup-runtime.sh"
 if [ -f /var/run/reboot-required ]; then
   echo
   echo "系统提示需要重启，建议安排时间执行：reboot"

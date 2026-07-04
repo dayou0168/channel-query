@@ -29,6 +29,7 @@
 - `requirements.txt`：Python 依赖。
 - `docs/INSTALL.md`：裸机 Linux 和 Docker Compose 两种一键部署方式。
 - `docs/DEPLOY_LINUX.md`：Linux 服务器部署流程。
+- `docs/BACKUP_RESTORE.md`：机器人运行配置、群登记、权限快照和灾备恢复流程。
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 流程。
 - `Dockerfile`：Docker 镜像构建文件。
 - `docker-compose.yml`：Docker Compose 服务定义，包含 `bot` 和可选 `web`。
@@ -41,6 +42,9 @@
 - `scripts/install-docker.sh`：Docker Compose 一键部署脚本。
 - `scripts/install.sh`：服务器首次安装辅助脚本。
 - `scripts/update.sh`：服务器更新代码辅助脚本。
+- `scripts/backup-runtime.sh`：创建可迁移到新服务器的运行时灾备包。
+- `scripts/restore-runtime.sh`：把运行时灾备包恢复到新服务器。
+- `scripts/backup-telegram-state.py`：通过 Telegram Bot API 导出机器人资料、命令、已知群和权限快照。
 - `scripts/status.sh`：查看机器人状态和日志。
 - `scripts/start-web.sh`：在服务器本机启动网页工具，用 SSH 隧道访问。
 
@@ -57,6 +61,8 @@
 - 支持裸机 Linux 一键部署、Docker Compose 源码构建部署、Docker Compose 直接 YAML 部署。
 - 支持 `TELEGRAM_API_BASE` / `telegram_api_base` 配置 Telegram Bot API 地址，不再固定官方 `https://api.telegram.org`。
 - Telegram 500/502/503/504 或网络超时时会自动退避重试，避免每 5 秒刷日志。
+- 支持自动登记机器人见过的 Telegram 群/私聊，并可生成 Telegram 状态快照。
+- 支持创建运行时灾备包，备份 `.env`、机器人配置、Google 凭证、本地加密 token、Docker 挂载数据等，用于新服务器恢复。
 
 ## 后台接口
 
@@ -134,6 +140,10 @@ sudo journalctl -u channel-query-bot -f
 - `google-oauth-client.json`
 - `channels.csv`
 - `.channel_query_draft.json`
+- `.telegram_chats.json`
+- `telegram-state-backups/`
+- `channel-query-runtime-*.tar.gz`
+- `channel-query-runtime-*.tar.gz.enc`
 
 `.gitignore` 已经默认排除了这些文件。
 

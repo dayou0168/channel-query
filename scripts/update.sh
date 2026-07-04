@@ -12,7 +12,7 @@ fi
 
 source .venv/bin/activate
 pip install -r requirements.txt
-python -m py_compile channel_query_app.py telegram_bot.py
+python -m py_compile channel_query_app.py telegram_bot.py scripts/backup-telegram-state.py
 
 systemctl restart ${SERVICE_NAME}
 systemctl status ${SERVICE_NAME} --no-pager
