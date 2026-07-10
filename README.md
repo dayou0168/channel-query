@@ -9,6 +9,7 @@
 - `docs/INSTALL.md`：裸机 Linux 和 Docker Compose 两种一键部署方式。
 - `docs/DEPLOY_LINUX.md`：Linux 服务器部署和更新流程。
 - `docs/BACKUP_RESTORE.md`：机器人配置、群登记、权限快照和灾备恢复流程。
+- `docs/REINSTALL_HANDOFF.md`：本机/服务器重装后的项目接手和当前卡点说明。
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 的安全流程。
 - `SECURITY.md`：密钥、token、服务账号 JSON 的安全注意事项。
 

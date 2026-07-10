@@ -30,6 +30,7 @@
 - `docs/INSTALL.md`：裸机 Linux 和 Docker Compose 两种一键部署方式。
 - `docs/DEPLOY_LINUX.md`：Linux 服务器部署流程。
 - `docs/BACKUP_RESTORE.md`：机器人运行配置、群登记、权限快照和灾备恢复流程。
+- `docs/REINSTALL_HANDOFF.md`：本机/服务器重装后的项目接手、当前进度和已知卡点。
 - `docs/GITHUB_UPLOAD.md`：上传 GitHub 流程。
 - `Dockerfile`：Docker 镜像构建文件。
 - `docker-compose.yml`：Docker Compose 服务定义，包含 `bot` 和可选 `web`。
@@ -66,11 +67,19 @@
 
 ## 后台接口
 
-当前后台基础地址：
+历史后台基础地址：
 
 ```text
 https://zhheew.bw009.com
 ```
+
+最近排查过的新后台域名：
+
+```text
+https://qiann.bw006.com
+```
+
+截至 2026-07-10，服务器 `47.79.38.159` 访问 `POST https://qiann.bw006.com/api/login` 返回 `HTTP 403 Access denied`。这表示请求在进入后台登录逻辑前被 nginx / WAF / 网关 / IP 白名单策略拒绝，优先让后台方放行服务器出口 IP 和 API 接口，不要先改机器人代码。完整交接见 `docs/REINSTALL_HANDOFF.md`。
 
 主要接口：
 

@@ -7,6 +7,7 @@
 - `docs/PROJECT_STATE.md`
 - `docs/INSTALL.md`
 - `docs/DEPLOY_LINUX.md`
+- `docs/REINSTALL_HANDOFF.md`
 - `README.md`
 
 ## 项目用途
