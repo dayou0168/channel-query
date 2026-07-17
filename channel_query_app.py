@@ -1544,6 +1544,80 @@ def pick_backend_row(account: str, rows: list[dict[str, Any]], total: int | None
     return None
 
 
+BACKEND_IP_KEYS = (
+    "address",
+    "register_ip",
+    "registerIp",
+    "register_ip_address",
+    "registerIpAddress",
+    "client_ip",
+    "clientIp",
+    "client_ip_address",
+    "clientIpAddress",
+    "customer_ip",
+    "customerIp",
+    "user_ip",
+    "userIp",
+    "ip_address",
+    "ipAddress",
+    "ip",
+    "客户端ip地址",
+    "客户端IP地址",
+    "注册ip",
+    "注册IP",
+)
+
+
+def normalize_backend_ip_value(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        ip = ipaddress.ip_address(text)
+        return str(ip) if ip.version == 4 else ""
+    except ValueError:
+        pass
+    for match in re.finditer(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)", text):
+        try:
+            ip = ipaddress.ip_address(match.group(0))
+        except ValueError:
+            continue
+        if ip.version == 4:
+            return str(ip)
+    return ""
+
+
+def backend_row_ip_values(row: dict[str, Any] | None) -> list[str]:
+    if not row:
+        return []
+    values: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: Any) -> None:
+        ip = normalize_backend_ip_value(value)
+        if ip and ip not in seen:
+            seen.add(ip)
+            values.append(ip)
+
+    for key in BACKEND_IP_KEYS:
+        add(row.get(key))
+    for key, value in row.items():
+        key_text = str(key).lower()
+        if key in BACKEND_IP_KEYS:
+            continue
+        if "ip" in key_text or key_text in {"addr", "address"} or key_text.endswith("_address"):
+            add(value)
+    return values
+
+
+def backend_row_identity(row: dict[str, Any], fallback: int) -> str:
+    for key in ("id", "user_id", "userId", "uid", "username", "account"):
+        value = row.get(key)
+        if value is not None and str(value).strip() != "":
+            return f"{key}:{value}"
+    return f"row:{fallback}"
+
+
 def is_backend_auth_expired_error(exc: Exception) -> bool:
     text = str(exc)
     return "授权已过期" in text or "HTTP 401" in text
@@ -1619,7 +1693,8 @@ def call_backend_user(account: str, token: str, backend_base: str) -> dict[str, 
 
 
 def is_same_ip(row: dict[str, Any], ip: str) -> bool:
-    return first_backend_value(row, "address", "register_ip", "ip") == ip
+    normalized_ip = normalize_backend_ip_value(ip)
+    return bool(normalized_ip and normalized_ip in backend_row_ip_values(row))
 
 
 def call_backend_users_by_ip(ip: str, token: str, backend_base: str, max_results: int = 500) -> list[dict[str, Any]]:
@@ -1631,9 +1706,9 @@ def call_backend_users_by_ip(ip: str, token: str, backend_base: str, max_results
     base = normalize_backend_base(backend_base)
     page_size = 100
     query_modes = [2, 1]
+    results: list[dict[str, Any]] = []
+    seen: set[str] = set()
     for is_like in query_modes:
-        results: list[dict[str, Any]] = []
-        seen: set[str] = set()
         page = 1
         while len(results) < max_results:
             payload = {
@@ -1649,7 +1724,7 @@ def call_backend_users_by_ip(ip: str, token: str, backend_base: str, max_results
             for row in rows:
                 if not is_same_ip(row, normalized_ip):
                     continue
-                key = str(row.get("user_id") or row.get("username") or len(results))
+                key = backend_row_identity(row, len(results))
                 if key in seen:
                     continue
                 seen.add(key)
@@ -1661,9 +1736,7 @@ def call_backend_users_by_ip(ip: str, token: str, backend_base: str, max_results
             if len(rows) < page_size:
                 break
             page += 1
-        if results:
-            return results
-    return []
+    return results
 
 
 def load_channel_map(sheet_url: str, sheet_csv: str, service_account_file: str = "") -> tuple[dict[str, str], str]:
@@ -1721,7 +1794,8 @@ def query_accounts(body: dict[str, Any]) -> dict[str, Any]:
         row = call_backend_user(account, token, backend_base)
         source = row.get("sms_phone", "") if row else ""
         source_id = normalize_source(source)
-        register_ip = first_backend_value(row, "address", "register_ip", "ip")
+        row_ips = backend_row_ip_values(row)
+        register_ip = row_ips[0] if row_ips else ""
         register_province = first_backend_value(row, "font_rgb", "province", "register_province", "province_name", "city")
         register_time = format_backend_time(first_backend_value(row, "register_time", "created", "create_time"))
         channel_code = channel_map.get(source_id, "未查到") if source_id else "未查到"
