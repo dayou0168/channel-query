@@ -18,7 +18,7 @@ class BackendIpQueryTests(unittest.TestCase):
 
         def fake_post_backend_list_auto_refresh(base, token, payload):
             calls.append(payload.copy())
-            if payload["is_like"] == 2:
+            if "address" in payload:
                 return (
                     [
                         {"id": 1, "username": "first", "address": "183.202.211.13"},
@@ -26,14 +26,16 @@ class BackendIpQueryTests(unittest.TestCase):
                     ],
                     2,
                 )
-            return (
-                [
-                    {"id": 1, "username": "first", "address": "183.202.211.13"},
-                    {"id": 2, "username": "second", "address": "183.202.211.13"},
-                    {"id": 3, "username": "third", "clientIp": "183.202.211.13"},
-                ],
-                3,
-            )
+            if "client_ip" in payload and payload["is_like"] == 2:
+                return (
+                    [
+                        {"id": 1, "username": "first", "address": "183.202.211.13"},
+                        {"id": 2, "username": "second", "address": "183.202.211.13"},
+                        {"id": 3, "username": "third", "clientIp": "183.202.211.13"},
+                    ],
+                    3,
+                )
+            return ([{"id": 999, "username": "other", "address": "8.8.8.8"}], 1)
 
         original = app.post_backend_list_auto_refresh
         app.post_backend_list_auto_refresh = fake_post_backend_list_auto_refresh
@@ -43,7 +45,8 @@ class BackendIpQueryTests(unittest.TestCase):
             app.post_backend_list_auto_refresh = original
 
         self.assertEqual([row["username"] for row in rows], ["first", "second", "third"])
-        self.assertEqual([call["is_like"] for call in calls], [2, 1])
+        self.assertIn(("address", 2), [(next(key for key in call if key in app.BACKEND_IP_QUERY_KEYS), call["is_like"]) for call in calls])
+        self.assertIn(("client_ip", 2), [(next(key for key in call if key in app.BACKEND_IP_QUERY_KEYS), call["is_like"]) for call in calls])
 
 
 if __name__ == "__main__":

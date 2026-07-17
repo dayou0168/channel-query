@@ -1568,6 +1568,27 @@ BACKEND_IP_KEYS = (
 )
 
 
+BACKEND_IP_QUERY_KEYS = (
+    "address",
+    "client_ip",
+    "clientIp",
+    "client_ip_address",
+    "clientIpAddress",
+    "ip",
+    "ip_address",
+    "ipAddress",
+    "register_ip",
+    "registerIp",
+    "customer_ip",
+    "customerIp",
+    "user_ip",
+    "userIp",
+    "username",
+    "keyword",
+    "search",
+)
+
+
 def normalize_backend_ip_value(value: Any) -> str:
     text = str(value or "").strip()
     if not text:
@@ -1708,34 +1729,39 @@ def call_backend_users_by_ip(ip: str, token: str, backend_base: str, max_results
     query_modes = [2, 1]
     results: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for is_like in query_modes:
-        page = 1
-        while len(results) < max_results:
-            payload = {
-                "page": page,
-                "page_size": page_size,
-                "address": normalized_ip,
-                "is_like": is_like,
-                "is_reply": -1,
-            }
-            rows, total = post_backend_list_auto_refresh(base, token, payload)
-            if not rows:
-                break
-            for row in rows:
-                if not is_same_ip(row, normalized_ip):
-                    continue
-                key = backend_row_identity(row, len(results))
-                if key in seen:
-                    continue
-                seen.add(key)
-                results.append(row)
-                if len(results) >= max_results:
+    for query_key in BACKEND_IP_QUERY_KEYS:
+        for is_like in query_modes:
+            page = 1
+            while len(results) < max_results:
+                payload = {
+                    "page": page,
+                    "page_size": page_size,
+                    query_key: normalized_ip,
+                    "is_like": is_like,
+                    "is_reply": -1,
+                }
+                rows, total = post_backend_list_auto_refresh(base, token, payload)
+                if not rows:
                     break
-            if total is not None and page * page_size >= int(total):
-                break
-            if len(rows) < page_size:
-                break
-            page += 1
+                matched_on_page = 0
+                for row in rows:
+                    if not is_same_ip(row, normalized_ip):
+                        continue
+                    matched_on_page += 1
+                    key = backend_row_identity(row, len(results))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    results.append(row)
+                    if len(results) >= max_results:
+                        break
+                if matched_on_page == 0:
+                    break
+                if total is not None and page * page_size >= int(total):
+                    break
+                if len(rows) < page_size:
+                    break
+                page += 1
     return results
 
 
