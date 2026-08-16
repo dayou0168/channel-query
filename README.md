@@ -35,7 +35,7 @@ docker-compose.deploy.yml
 docker-compose.baota.yml
 ```
 
-该文件固定使用 `v1.2` 镜像和当前 Telegram 官方 API。粘贴到宝塔前，只需把两处 `replace_with_existing_master_key` 替换成原来的 `CHANNEL_QUERY_MASTER_KEY`。
+该文件固定使用 `v1.3` 镜像和当前 Telegram 官方 API。粘贴到宝塔前，只需把两处 `replace_with_existing_master_key` 替换成原来的 `CHANNEL_QUERY_MASTER_KEY`。
 
 这个工具用于批量输入 WPPChat 账号，查询后台用户列表里的注册来源，再到 Google 表格里匹配“来源编号”左侧的渠道编码。
 
@@ -105,6 +105,8 @@ Google 表格中必须有一列叫：
 ```
 
 渠道编码必须在“来源编号”的左侧一列。
+
+如果表格可以读取但缺少上述列，机器人仍会继续查询后台并返回账号、注册 IP、注册省份等信息；注册来源为空时，注册来源和渠道编码显示“未查到”，状态显示“注册来源为空”。
 
 示例：
 

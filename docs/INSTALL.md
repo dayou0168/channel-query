@@ -123,16 +123,16 @@ http://127.0.0.1:8766
 ghcr.io/dayou0168/channel-query:latest
 ```
 
-正式版本还会发布同名镜像标签，例如 Git 标签 `v1.2` 对应：
+正式版本还会发布同名镜像标签，例如 Git 标签 `v1.3` 对应：
 
 ```text
-ghcr.io/dayou0168/channel-query:v1.2
+ghcr.io/dayou0168/channel-query:v1.3
 ```
 
 在 `.env` 中设置下面这一行，可以让 Docker Compose 固定使用某个正式版本，而不是始终跟随 `latest`：
 
 ```text
-CHANNEL_QUERY_IMAGE=ghcr.io/dayou0168/channel-query:v1.2
+CHANNEL_QUERY_IMAGE=ghcr.io/dayou0168/channel-query:v1.3
 ```
 
 如果 GitHub Actions 构建失败，并提示：

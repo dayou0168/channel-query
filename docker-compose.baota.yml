@@ -2,7 +2,7 @@ name: chaxun-shuiyuan
 
 services:
   bot:
-    image: ghcr.io/dayou0168/channel-query:v1.2
+    image: ghcr.io/dayou0168/channel-query:v1.3
     container_name: chaxun-shuiyuan-bot
     restart: unless-stopped
     environment:
@@ -15,7 +15,7 @@ services:
     command: ["python", "telegram_bot.py", "--config", "/config/telegram_config.json"]
 
   web:
-    image: ghcr.io/dayou0168/channel-query:v1.2
+    image: ghcr.io/dayou0168/channel-query:v1.3
     container_name: chaxun-shuiyuan-web
     restart: unless-stopped
     environment:

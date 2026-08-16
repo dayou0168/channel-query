@@ -991,9 +991,13 @@ def read_delimited_rows(text: str) -> list[list[str]]:
     return max(candidates, key=lambda item: max((len(row) for row in item[:30]), default=0))
 
 
+class ChannelMapSchemaError(RuntimeError):
+    """渠道表能读取，但缺少可用的来源编号映射结构。"""
+
+
 def build_channel_map(csv_text: str) -> dict[str, str]:
     if not csv_text.strip():
-        raise RuntimeError("渠道表为空。")
+        raise ChannelMapSchemaError("渠道表为空。")
     text = csv_text.lstrip("\ufeff")
     rows = read_delimited_rows(text)
     header_index = -1
@@ -1005,9 +1009,9 @@ def build_channel_map(csv_text: str) -> dict[str, str]:
             source_col = normalized.index("来源编号")
             break
     if header_index < 0 or source_col < 0:
-        raise RuntimeError("渠道表中未找到“来源编号”列。")
+        raise ChannelMapSchemaError("渠道表中未找到“来源编号”列。")
     if source_col == 0:
-        raise RuntimeError("“来源编号”左侧没有渠道编码列。")
+        raise ChannelMapSchemaError("“来源编号”左侧没有渠道编码列。")
     channel_col = source_col - 1
     mapping: dict[str, str] = {}
     for row in rows[header_index + 1 :]:
@@ -1020,7 +1024,7 @@ def build_channel_map(csv_text: str) -> dict[str, str]:
         if channel:
             mapping[source_id] = channel
     if not mapping:
-        raise RuntimeError("渠道表中没有可用的来源编号映射。")
+        raise ChannelMapSchemaError("渠道表中没有可用的来源编号映射。")
     return mapping
 
 
@@ -1034,9 +1038,9 @@ def build_channel_map_from_rows(rows: list[list[Any]]) -> dict[str, str]:
             source_col = normalized.index("来源编号")
             break
     if header_index < 0 or source_col < 0:
-        raise RuntimeError("渠道表中未找到“来源编号”列。")
+        raise ChannelMapSchemaError("渠道表中未找到“来源编号”列。")
     if source_col == 0:
-        raise RuntimeError("“来源编号”左侧没有渠道编码列。")
+        raise ChannelMapSchemaError("“来源编号”左侧没有渠道编码列。")
     channel_col = source_col - 1
     mapping: dict[str, str] = {}
     for row in rows[header_index + 1 :]:
@@ -1049,7 +1053,7 @@ def build_channel_map_from_rows(rows: list[list[Any]]) -> dict[str, str]:
         if channel:
             mapping[source_id] = channel
     if not mapping:
-        raise RuntimeError("渠道表中没有可用的来源编号映射。")
+        raise ChannelMapSchemaError("渠道表中没有可用的来源编号映射。")
     return mapping
 
 
@@ -1856,11 +1860,15 @@ def query_accounts(body: dict[str, Any]) -> dict[str, Any]:
     accounts = parse_accounts(body.get("accounts"))
     if not accounts:
         raise RuntimeError("没有可查询的WPPChat账号。")
-    channel_map, sheet_source = load_channel_map(
-        body.get("sheetUrl") or DEFAULT_SHEET_URL,
-        body.get("sheetCsv") or "",
-        body.get("serviceAccountFile") or "",
-    )
+    try:
+        channel_map, sheet_source = load_channel_map(
+            body.get("sheetUrl") or DEFAULT_SHEET_URL,
+            body.get("sheetCsv") or "",
+            body.get("serviceAccountFile") or "",
+        )
+    except ChannelMapSchemaError:
+        channel_map = {}
+        sheet_source = "渠道表结构缺失"
     token, token_source = get_backend_token(body.get("backendToken"))
     backend_base = body.get("backendBase") or BACKEND_BASE_URL
 
