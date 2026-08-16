@@ -29,6 +29,14 @@ docker-compose.deploy.yml
 
 它会直接拉取 `ghcr.io/dayou0168/channel-query:latest`，不需要在服务器本地构建源码。
 
+宝塔中现有 `chaxun-shuiyuan` 实例可直接使用：
+
+```text
+docker-compose.baota.yml
+```
+
+该文件固定使用 `v1.2` 镜像和当前 Telegram 官方 API。粘贴到宝塔前，只需把两处 `replace_with_existing_master_key` 替换成原来的 `CHANNEL_QUERY_MASTER_KEY`。
+
 这个工具用于批量输入 WPPChat 账号，查询后台用户列表里的注册来源，再到 Google 表格里匹配“来源编号”左侧的渠道编码。
 
 ## 启动

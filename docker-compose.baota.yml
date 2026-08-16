@@ -1,0 +1,29 @@
+name: chaxun-shuiyuan
+
+services:
+  bot:
+    image: ghcr.io/dayou0168/channel-query:v1.2
+    container_name: chaxun-shuiyuan-bot
+    restart: unless-stopped
+    environment:
+      CHANNEL_QUERY_DATA_DIR: /data
+      CHANNEL_QUERY_MASTER_KEY: "replace_with_existing_master_key"
+      TELEGRAM_API_BASE: "https://api.telegram.org"
+    volumes:
+      - /opt/chaxun-shuiyuan/data:/data
+      - /opt/chaxun-shuiyuan/config:/config:ro
+    command: ["python", "telegram_bot.py", "--config", "/config/telegram_config.json"]
+
+  web:
+    image: ghcr.io/dayou0168/channel-query:v1.2
+    container_name: chaxun-shuiyuan-web
+    restart: unless-stopped
+    environment:
+      CHANNEL_QUERY_DATA_DIR: /data
+      CHANNEL_QUERY_MASTER_KEY: "replace_with_existing_master_key"
+    volumes:
+      - /opt/chaxun-shuiyuan/data:/data
+      - /opt/chaxun-shuiyuan/config:/config:ro
+    ports:
+      - "127.0.0.1:8767:8766"
+    command: ["python", "channel_query_app.py", "--host", "0.0.0.0", "--port", "8766"]
