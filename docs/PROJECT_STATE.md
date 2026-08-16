@@ -18,7 +18,7 @@
 查IP 172.15.217.52
 ```
 
-返回这个注册 IP 下的所有账号和注册时间。
+机器人先在后台“用户ip记录”按“客户端ip地址”查询用户唯一 ID，再到“用户列表”按用户 ID 查询，返回对应的 WPPChat 号和注册时间。
 
 ## 核心文件
 
@@ -58,7 +58,7 @@
 - 支持 Google 表格实时读取，推荐使用服务账号 JSON。
 - 支持后台 token 加密保存。
 - 支持后台 token 过期后自动续登录，前提是已经保存后台账号密码和 TOTP 绑定密钥。
-- 支持 `查IP` 命令查询同注册 IP 账号。
+- 支持 `查IP` 命令从“用户ip记录”查询客户端 IP，并通过用户唯一 ID 回查 WPPChat 号和注册时间。
 - 支持裸机 Linux 一键部署、Docker Compose 源码构建部署、Docker Compose 直接 YAML 部署。
 - 支持 `TELEGRAM_API_BASE` / `telegram_api_base` 配置 Telegram Bot API 地址，不再固定官方 `https://api.telegram.org`。
 - Telegram 500/502/503/504 或网络超时时会自动退避重试，避免每 5 秒刷日志。
@@ -85,6 +85,7 @@ https://qiann.bw006.com
 
 - 登录：`POST /api/login`
 - 用户列表：`POST /api/im/imUserInfo/list`
+- 用户 IP 记录：`POST /api/potatouser/ipaddr/list`
 
 用户列表查询会使用后台默认模糊查询逻辑，不做前端精确匹配。
 

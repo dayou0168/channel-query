@@ -123,6 +123,18 @@ http://127.0.0.1:8766
 ghcr.io/dayou0168/channel-query:latest
 ```
 
+正式版本还会发布同名镜像标签，例如 Git 标签 `v1.2` 对应：
+
+```text
+ghcr.io/dayou0168/channel-query:v1.2
+```
+
+在 `.env` 中设置下面这一行，可以让 Docker Compose 固定使用某个正式版本，而不是始终跟随 `latest`：
+
+```text
+CHANNEL_QUERY_IMAGE=ghcr.io/dayou0168/channel-query:v1.2
+```
+
 如果 GitHub Actions 构建失败，并提示：
 
 ```text
@@ -338,6 +350,46 @@ Docker Compose 示例：
 
 ```text
 TELEGRAM_API_BASE=https://你的telegram-api反代域名
+```
+
+第三方地址只填写 `/bot<token>/<method>` 前面的基础地址。例如完整接口格式是：
+
+```text
+https://tg-api.example.com/api/bot<token>/sendMessage
+```
+
+则配置为：
+
+```text
+TELEGRAM_API_BASE=https://tg-api.example.com/api
+```
+
+### 宝塔 Docker Compose 修改 Telegram API
+
+宝塔的 Compose 项目一般位于：
+
+```text
+/www/server/panel/data/compose/项目名
+```
+
+旧版运行时配置不会被新镜像自动覆盖。升级后可以编辑该目录的 `.env`，加入：
+
+```text
+TELEGRAM_API_BASE=https://你的telegram-api反代域名
+```
+
+也可以编辑 `config/telegram_config.json`，在 `telegram_bot_token` 后加入：
+
+```json
+"telegram_api_base": "https://你的telegram-api反代域名"
+```
+
+如果 `.env` 和 JSON 同时配置，以 `.env` 中的 `TELEGRAM_API_BASE` 为准。修改后必须重建机器人容器：
+
+```bash
+cd /www/server/panel/data/compose/项目名
+docker compose up -d --force-recreate bot
+docker compose logs --tail=100 bot
 ```
 
 ## 备份与恢复

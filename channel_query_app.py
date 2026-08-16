@@ -38,6 +38,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 BACKEND_BASE_URL = os.environ.get("WPPCHAT_BACKEND_URL", "https://zhheew.bw009.com")
 BACKEND_LIST_PATH = "/api/im/imUserInfo/list"
+BACKEND_IP_RECORD_LIST_PATH = "/api/potatouser/ipaddr/list"
 DEFAULT_SHEET_URL = os.environ.get("CHANNEL_QUERY_SHEET_URL", "")
 
 GOOGLE_OAUTH_STATE: dict[str, dict[str, Any]] = {}
@@ -1546,6 +1547,8 @@ def pick_backend_row(account: str, rows: list[dict[str, Any]], total: int | None
 
 BACKEND_IP_KEYS = (
     "address",
+    "ip_addr",
+    "ipAddr",
     "register_ip",
     "registerIp",
     "register_ip_address",
@@ -1565,27 +1568,6 @@ BACKEND_IP_KEYS = (
     "客户端IP地址",
     "注册ip",
     "注册IP",
-)
-
-
-BACKEND_IP_QUERY_KEYS = (
-    "address",
-    "client_ip",
-    "clientIp",
-    "client_ip_address",
-    "clientIpAddress",
-    "ip",
-    "ip_address",
-    "ipAddress",
-    "register_ip",
-    "registerIp",
-    "customer_ip",
-    "customerIp",
-    "user_ip",
-    "userIp",
-    "username",
-    "keyword",
-    "search",
 )
 
 
@@ -1631,12 +1613,21 @@ def backend_row_ip_values(row: dict[str, Any] | None) -> list[str]:
     return values
 
 
-def backend_row_identity(row: dict[str, Any], fallback: int) -> str:
-    for key in ("id", "user_id", "userId", "uid", "username", "account"):
+def backend_user_id(row: dict[str, Any] | None) -> Any:
+    if not row:
+        return None
+    for key in ("user_id", "userId", "uid", "id"):
         value = row.get(key)
         if value is not None and str(value).strip() != "":
-            return f"{key}:{value}"
-    return f"row:{fallback}"
+            return value
+    return None
+
+
+def backend_user_id_match_key(value: Any) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"\d+", text):
+        return str(int(text))
+    return text.lower()
 
 
 def is_backend_auth_expired_error(exc: Exception) -> bool:
@@ -1689,6 +1680,41 @@ def post_backend_list_auto_refresh(base: str, token: str, payload: dict[str, Any
         return post_backend_list(base, new_token, payload)
 
 
+def post_backend_ip_records(base: str, token: str, payload: dict[str, Any]) -> tuple[list[dict[str, Any]], int | None]:
+    request = urllib.request.Request(
+        base + BACKEND_IP_RECORD_LIST_PATH,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=backend_headers(base, token, "/#/potatouser/ipaddr"),
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=25) as response:
+            data = json.loads(response.read().decode("utf-8", errors="replace"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:300]
+        raise RuntimeError(f"后台用户IP记录查询失败：HTTP {exc.code} {body}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"后台用户IP记录查询失败：{exc.reason}") from exc
+    if data.get("code") not in (0, "0", None):
+        raise RuntimeError(f"后台用户IP记录返回错误：{data.get('msg') or data.get('message') or data.get('code')}")
+    return extract_backend_rows(data)
+
+
+def post_backend_ip_records_auto_refresh(
+    base: str,
+    token: str,
+    payload: dict[str, Any],
+) -> tuple[list[dict[str, Any]], int | None]:
+    effective_token = BACKEND_SESSION_TOKEN or token
+    try:
+        return post_backend_ip_records(base, effective_token, payload)
+    except RuntimeError as exc:
+        if not is_backend_auth_expired_error(exc):
+            raise
+        new_token = refresh_backend_token(base)
+        return post_backend_ip_records(base, new_token, payload)
+
+
 def call_backend_user(account: str, token: str, backend_base: str) -> dict[str, Any] | None:
     base = normalize_backend_base(backend_base)
     account = str(account or "").strip()
@@ -1713,6 +1739,28 @@ def call_backend_user(account: str, token: str, backend_base: str) -> dict[str, 
     return None
 
 
+def call_backend_user_by_id(user_id: Any, token: str, backend_base: str) -> dict[str, Any] | None:
+    base = normalize_backend_base(backend_base)
+    match_key = backend_user_id_match_key(user_id)
+    if not match_key:
+        return None
+    query_value: Any = int(match_key) if match_key.isdigit() else str(user_id).strip()
+    payload = {
+        "page": 1,
+        "page_size": 50,
+        "user_id": query_value,
+        "is_like": 1,
+        "is_reply": -1,
+    }
+    rows, total = post_backend_list_auto_refresh(base, token, payload)
+    for row in rows:
+        if backend_user_id_match_key(backend_user_id(row)) == match_key:
+            return row
+    if len(rows) == 1 and total in (None, 1):
+        return rows[0]
+    return None
+
+
 def is_same_ip(row: dict[str, Any], ip: str) -> bool:
     normalized_ip = normalize_backend_ip_value(ip)
     return bool(normalized_ip and normalized_ip in backend_row_ip_values(row))
@@ -1725,43 +1773,44 @@ def call_backend_users_by_ip(ip: str, token: str, backend_base: str, max_results
         raise RuntimeError(f"IP地址格式不正确：{ip}") from exc
 
     base = normalize_backend_base(backend_base)
+    if max_results <= 0:
+        return []
+
     page_size = 100
-    query_modes = [2, 1]
+    page = 1
+    user_ids: list[Any] = []
+    seen_user_ids: set[str] = set()
+    while len(user_ids) < max_results:
+        payload = {
+            "page": page,
+            "page_size": page_size,
+            "ip_addr": normalized_ip,
+        }
+        rows, total = post_backend_ip_records_auto_refresh(base, token, payload)
+        if not rows:
+            break
+        for row in rows:
+            if not is_same_ip(row, normalized_ip):
+                continue
+            user_id = backend_user_id(row)
+            key = backend_user_id_match_key(user_id)
+            if not key or key in seen_user_ids:
+                continue
+            seen_user_ids.add(key)
+            user_ids.append(user_id)
+            if len(user_ids) >= max_results:
+                break
+        if total is not None and page * page_size >= int(total):
+            break
+        if len(rows) < page_size:
+            break
+        page += 1
+
     results: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for query_key in BACKEND_IP_QUERY_KEYS:
-        for is_like in query_modes:
-            page = 1
-            while len(results) < max_results:
-                payload = {
-                    "page": page,
-                    "page_size": page_size,
-                    query_key: normalized_ip,
-                    "is_like": is_like,
-                    "is_reply": -1,
-                }
-                rows, total = post_backend_list_auto_refresh(base, token, payload)
-                if not rows:
-                    break
-                matched_on_page = 0
-                for row in rows:
-                    if not is_same_ip(row, normalized_ip):
-                        continue
-                    matched_on_page += 1
-                    key = backend_row_identity(row, len(results))
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    results.append(row)
-                    if len(results) >= max_results:
-                        break
-                if matched_on_page == 0:
-                    break
-                if total is not None and page * page_size >= int(total):
-                    break
-                if len(rows) < page_size:
-                    break
-                page += 1
+    for user_id in user_ids:
+        row = call_backend_user_by_id(user_id, token, base)
+        if row:
+            results.append(row)
     return results
 
 

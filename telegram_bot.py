@@ -354,13 +354,13 @@ def query_ip_text(text: str, config: dict[str, Any]) -> str:
         rows = core.call_backend_users_by_ip(ip, token, backend_base, limit)
         lines.append(f"同IP查询：{html_code(ip)}")
         if not rows:
-            lines.append("未查到同IP注册账号。")
+            lines.append("未查到使用该IP的账号。")
             lines.append("")
             continue
         for row in rows:
             account = row.get("username") or "未查到"
             register_time = core.format_backend_time(core.first_backend_value(row, "register_time", "created", "create_time"))
-            lines.append(f"账号：{html_code(account)}")
+            lines.append(f"WPPChat号：{html_code(account)}")
             lines.append(f"注册时间：{html_text(register_time)}")
             lines.append("")
         suffix = f"，只显示前 {limit} 个" if len(rows) >= limit else ""
