@@ -48,6 +48,7 @@ gh auth login
 - 注册来源会标准化，例如 `https://615b19.xxx.top` 显示为 `615b19`。
 - 支持 `查IP 172.15.217.52`：先从“用户ip记录”按客户端 IP 取得用户唯一 ID，再从“用户列表”回查 WPPChat 号和注册时间。
 - 支持 Google 表格实时读取。
+- Google Sheets API 遇到 429/500/502/503/504 或网络异常时会自动退避重试，最终只返回简短错误提示。
 - 支持后台 token 加密保存。
 - 支持保存后台账号密码和 TOTP 绑定密钥后自动续登录。
 - 支持 `TELEGRAM_API_BASE` 自定义 Telegram Bot API 地址。

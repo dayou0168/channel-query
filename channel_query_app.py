@@ -40,6 +40,8 @@ BACKEND_BASE_URL = os.environ.get("WPPCHAT_BACKEND_URL", "https://zhheew.bw009.c
 BACKEND_LIST_PATH = "/api/im/imUserInfo/list"
 BACKEND_IP_RECORD_LIST_PATH = "/api/potatouser/ipaddr/list"
 DEFAULT_SHEET_URL = os.environ.get("CHANNEL_QUERY_SHEET_URL", "")
+GOOGLE_RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+GOOGLE_RETRY_DELAYS = (1, 2, 4)
 
 GOOGLE_OAUTH_STATE: dict[str, dict[str, Any]] = {}
 GOOGLE_OAUTH_TOKEN: dict[str, Any] = {}
@@ -1095,12 +1097,26 @@ def get_service_account_access_token(credentials_file: str) -> str:
         headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(request, timeout=25) as response:
-            data = json.loads(response.read().decode("utf-8", errors="replace"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")[:500]
-        raise RuntimeError(f"服务账号授权失败：HTTP {exc.code} {body}") from exc
+    data: dict[str, Any] = {}
+    for attempt in range(len(GOOGLE_RETRY_DELAYS) + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=25) as response:
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code in GOOGLE_RETRYABLE_HTTP_CODES:
+                if attempt < len(GOOGLE_RETRY_DELAYS):
+                    time.sleep(GOOGLE_RETRY_DELAYS[attempt])
+                    continue
+                raise RuntimeError(
+                    f"Google 服务账号授权暂时失败（HTTP {exc.code}），已自动重试，请稍后再试。"
+                ) from exc
+            raise RuntimeError(f"服务账号授权失败：HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError) as exc:
+            if attempt < len(GOOGLE_RETRY_DELAYS):
+                time.sleep(GOOGLE_RETRY_DELAYS[attempt])
+                continue
+            raise RuntimeError("Google 服务账号授权网络异常，已自动重试，请稍后再试。") from exc
     token = data.get("access_token")
     if not token:
         raise RuntimeError("服务账号授权失败：未返回 access_token。")
@@ -1109,16 +1125,30 @@ def get_service_account_access_token(credentials_file: str) -> str:
 
 def google_api_get_json(url: str, token: str, auth_label: str = "Google账号") -> dict[str, Any]:
     request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.loads(response.read().decode("utf-8", errors="replace"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")[:500]
-        if exc.code in (401, 403):
-            if auth_label == "服务账号":
-                raise RuntimeError("服务账号无权读取表格。请把表格共享给服务账号 client_email，权限选查看者。")
-            raise RuntimeError("Google授权账号无权读取表格或授权已过期。请确认授权的Google账号有表格查看权限，并重新授权Google。")
-        raise RuntimeError(f"读取 Google Sheets API 失败：HTTP {exc.code} {body}") from exc
+    for attempt in range(len(GOOGLE_RETRY_DELAYS) + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return json.loads(response.read().decode("utf-8", errors="replace"))
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403):
+                if auth_label == "服务账号":
+                    raise RuntimeError("服务账号无权读取表格。请把表格共享给服务账号 client_email，权限选查看者。")
+                raise RuntimeError("Google授权账号无权读取表格或授权已过期。请确认授权的Google账号有表格查看权限，并重新授权Google。")
+            if exc.code in GOOGLE_RETRYABLE_HTTP_CODES:
+                if attempt < len(GOOGLE_RETRY_DELAYS):
+                    time.sleep(GOOGLE_RETRY_DELAYS[attempt])
+                    continue
+                raise RuntimeError(
+                    f"读取 Google Sheets API 暂时失败（HTTP {exc.code}），已自动重试，请稍后再试。"
+                ) from exc
+            raise RuntimeError(f"读取 Google Sheets API 失败：HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError) as exc:
+            if attempt < len(GOOGLE_RETRY_DELAYS):
+                time.sleep(GOOGLE_RETRY_DELAYS[attempt])
+                continue
+            raise RuntimeError("读取 Google Sheets API 网络异常，已自动重试，请稍后再试。") from exc
+
+    raise RuntimeError("读取 Google Sheets API 失败。")
 
 
 def google_api_get_json_oauth(url: str) -> dict[str, Any]:
